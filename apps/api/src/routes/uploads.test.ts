@@ -1,22 +1,33 @@
-import { ensureTestDoctor, truncateAll } from "@healthcare/dal/src/test-utils/test-db.js";
+import {
+  ensureTestDoctor,
+  ensureTestLabTestCatalogItem,
+  truncateAll,
+} from "@healthcare/dal/src/test-utils/test-db.js";
 import { beforeEach, describe, expect, it } from "vitest";
 import { app } from "../app.js";
 import { db } from "../db.js";
-import { signInAsAdmin, signInAsPatient } from "../test-utils/api-test-client.js";
+import {
+  signInAsAdmin,
+  signInAsDoctor,
+  signInAsNurse,
+  signInAsPatient,
+} from "../test-utils/api-test-client.js";
 import { readJson } from "../test-utils/read-json.js";
 import { registerTestPatient } from "../test-utils/register-patient.js";
 
 interface PatientResponse {
-  patient: { identificationDocumentPath: string | null };
+  patient: { id: string; identificationDocumentPath: string | null };
 }
 
 let doctorId: string;
+let catalogItemId: string;
 
 beforeEach(async () => {
   await truncateAll(db);
   // truncateAll wipes `doctor` too (it now has a live FK to `user`), so the
   // fixture doctor must be re-seeded — and re-captured — every time.
   doctorId = (await ensureTestDoctor(db)).id;
+  catalogItemId = (await ensureTestLabTestCatalogItem(db)).id;
 });
 
 describe("GET /api/uploads/:key", () => {
@@ -65,5 +76,72 @@ describe("GET /api/uploads/:key", () => {
       headers: { Cookie: adminCookie },
     });
     expect(res.status).toBe(404);
+  });
+});
+
+describe("GET /api/uploads/:key for lab-result report files", () => {
+  async function uploadLabResultFile(patientId: string, cookie: string): Promise<string> {
+    const requestRes = await app.request(`/api/patients/${patientId}/lab-results`, {
+      method: "POST",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ catalogItemId }),
+    });
+    const { labResult } = await readJson<{ labResult: { id: string } }>(requestRes);
+
+    const formData = new FormData();
+    formData.append("parameters", "[]");
+    formData.append(
+      "reportFile",
+      new File(["report content"], "cbc.pdf", { type: "application/pdf" }),
+    );
+    const uploadRes = await app.request(
+      `/api/patients/${patientId}/lab-results/${labResult.id}/result`,
+      { method: "POST", headers: { Cookie: cookie }, body: formData },
+    );
+    const uploaded = await readJson<{ labResult: { reportFilePath: string } }>(uploadRes);
+    return uploaded.labResult.reportFilePath;
+  }
+
+  it("lets any doctor or nurse read a patient's lab-result file, unscoped", async () => {
+    const ownerCookie = await signInAsPatient(app, "lab-file-owner@example.com");
+    const { patient } = await readJson<PatientResponse>(
+      await registerTestPatient(app, { cookie: ownerCookie, doctorId }),
+    );
+
+    const doctorCookie = await signInAsDoctor(app);
+    const key = await uploadLabResultFile(patient.id, doctorCookie);
+
+    const nurseCookie = await signInAsNurse(app);
+    const res = await app.request(`/api/uploads/${key}`, { headers: { Cookie: nurseCookie } });
+    expect(res.status).toBe(200);
+  });
+
+  it("lets the owning patient read their own lab-result file", async () => {
+    const ownerCookie = await signInAsPatient(app, "lab-file-self@example.com");
+    const { patient } = await readJson<PatientResponse>(
+      await registerTestPatient(app, { cookie: ownerCookie, doctorId }),
+    );
+
+    const doctorCookie = await signInAsDoctor(app);
+    const key = await uploadLabResultFile(patient.id, doctorCookie);
+
+    const res = await app.request(`/api/uploads/${key}`, { headers: { Cookie: ownerCookie } });
+    expect(res.status).toBe(200);
+  });
+
+  it("denies a different patient reading someone else's lab-result file", async () => {
+    const ownerCookie = await signInAsPatient(app, "lab-file-other-owner@example.com");
+    const { patient } = await readJson<PatientResponse>(
+      await registerTestPatient(app, { cookie: ownerCookie, doctorId }),
+    );
+
+    const doctorCookie = await signInAsDoctor(app);
+    const key = await uploadLabResultFile(patient.id, doctorCookie);
+
+    const otherCookie = await signInAsPatient(app, "lab-file-other@example.com");
+    await registerTestPatient(app, { cookie: otherCookie, doctorId });
+
+    const res = await app.request(`/api/uploads/${key}`, { headers: { Cookie: otherCookie } });
+    expect(res.status).toBe(403);
   });
 });

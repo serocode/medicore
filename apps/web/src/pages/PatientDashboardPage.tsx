@@ -29,6 +29,8 @@ export function PatientDashboardPage() {
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
+      {!error && appointments === null && <p className="text-sm text-slate-500">Loading…</p>}
+
       {appointments && appointments.length === 0 && (
         <p className="text-sm text-slate-600">
           You have no appointments yet. Book your first one to get started.

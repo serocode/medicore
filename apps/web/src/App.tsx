@@ -12,11 +12,13 @@ import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { BookAppointmentPage } from "./pages/BookAppointmentPage";
 import { BookingSuccessPage } from "./pages/BookingSuccessPage";
 import { HomePage } from "./pages/HomePage";
+import { LabResultDetailPage } from "./pages/LabResultDetailPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { PatientClinicalRecordPage } from "./pages/PatientClinicalRecordPage";
 import { PatientDashboardPage } from "./pages/PatientDashboardPage";
 import { RecordEncounterPage } from "./pages/RecordEncounterPage";
 import { RegisterPatientPage } from "./pages/RegisterPatientPage";
+import { RequestLabTestPage } from "./pages/RequestLabTestPage";
 import { SignInPage } from "./pages/SignInPage";
 import { StaffDashboardPage } from "./pages/StaffDashboardPage";
 import { StaffProfilePage } from "./pages/StaffProfilePage";
@@ -123,6 +125,26 @@ export function App() {
             <RequireStaff>
               <Layout>
                 <RecordEncounterPage />
+              </Layout>
+            </RequireStaff>
+          }
+        />
+        <Route
+          path="/patients/:patientId/lab-results/new"
+          element={
+            <RequireStaff>
+              <Layout>
+                <RequestLabTestPage />
+              </Layout>
+            </RequireStaff>
+          }
+        />
+        <Route
+          path="/patients/:patientId/lab-results/:labResultId"
+          element={
+            <RequireStaff>
+              <Layout>
+                <LabResultDetailPage />
               </Layout>
             </RequireStaff>
           }

@@ -38,6 +38,24 @@ export interface PatientSummary {
 
 export type StaffRole = "doctor" | "nurse";
 
+export type UserAccountRole = "patient" | "doctor" | "nurse" | "admin";
+
+export interface UserAccount {
+  id: string;
+  name: string;
+  email: string;
+  role: UserAccountRole;
+  disabledAt: string | null;
+  createdAt: string;
+}
+
+export interface StaffInvite {
+  email: string;
+  role: "doctor" | "nurse" | "admin";
+  invitedByUserId: string;
+  createdAt: string;
+}
+
 export interface DoctorProfile {
   id: string;
   userId: string | null;
@@ -111,6 +129,88 @@ export interface VitalSign {
   bmi: number | null;
   notes: string | null;
   recordedAt: string;
+}
+
+export type LabTestCategory =
+  | "hematology"
+  | "blood_chemistry"
+  | "urinalysis"
+  | "microbiology"
+  | "immunology"
+  | "imaging"
+  | "pathology"
+  | "other";
+
+export type LabResultStatus =
+  | "requested"
+  | "pending"
+  | "result_available"
+  | "reviewed"
+  | "cancelled";
+
+export type LabResultFlag = "normal" | "abnormal" | "critical";
+
+export interface LabTestCatalogItem {
+  id: string;
+  category: LabTestCategory;
+  name: string;
+  isActive: boolean;
+}
+
+export interface LabResultParameter {
+  id: string;
+  labResultId: string;
+  parameterName: string;
+  value: string;
+  unit: string | null;
+  referenceRange: string | null;
+  flag: LabResultFlag | null;
+  remarks: string | null;
+  sortOrder: number;
+}
+
+export interface LabResult {
+  id: string;
+  patientId: string;
+  encounterId: string | null;
+  catalogItemId: string;
+  testName: string;
+  category: LabTestCategory;
+  status: LabResultStatus;
+
+  requestedByUserId: string;
+  requestedByName: string;
+  requestedByRole: StaffRole;
+  requestNotes: string | null;
+  requestedAt: string;
+
+  datePerformed: string | null;
+  dateReleased: string | null;
+  facility: string | null;
+  findings: string | null;
+  summary: string | null;
+  interpretation: string | null;
+  remarks: string | null;
+
+  reportFilePath: string | null;
+  uploadedByUserId: string | null;
+  uploadedByName: string | null;
+  uploadedByRole: StaffRole | null;
+  uploadedAt: string | null;
+
+  reviewedByUserId: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  reviewInterpretation: string | null;
+  reviewNotes: string | null;
+  followUpRecommendation: string | null;
+  actionTaken: string | null;
+
+  cancellationReason: string | null;
+}
+
+export interface LabResultWithPatientName extends LabResult {
+  patientName: string;
 }
 
 export interface Appointment {

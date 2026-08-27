@@ -4,7 +4,7 @@ import { emailOTP } from "better-auth/plugins";
 import { db } from "./db.js";
 import { sendOtpEmail } from "./email.js";
 import { env } from "./env.js";
-import { doctorRepository, nurseRepository } from "./repos.js";
+import { doctorRepository, nurseRepository, staffAccountRepository } from "./repos.js";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
@@ -30,6 +30,9 @@ export const auth = betterAuth({
     additionalFields: {
       // Server-assigned only — never accept a client-supplied role.
       role: { type: "string", input: false, defaultValue: "patient" },
+      // Server-assigned only, see requireAuth — a disabled account can't
+      // authenticate even with a still-valid session cookie.
+      disabledAt: { type: "date", input: false, required: false },
     },
   },
   databaseHooks: {
@@ -41,15 +44,25 @@ export const auth = betterAuth({
           if (env.adminEmails.has(email)) return { data: { ...user, role: "admin" } };
           if (env.doctorEmails.has(email)) return { data: { ...user, role: "doctor" } };
           if (env.nurseEmails.has(email)) return { data: { ...user, role: "nurse" } };
+          // Runtime-managed alternative to the env allowlists above — see
+          // packages/dal/src/schema/staff-invite.ts. Checked last so an env
+          // allowlist entry always wins if both somehow name the same email.
+          const invite = await staffAccountRepository.findInvite(email);
+          if (invite) return { data: { ...user, role: invite.role } };
           return;
         },
-        // Staff accounts bootstrap via an env allowlist (like admin does)
-        // rather than a self-service registration form, so the minimal
-        // professional profile row is auto-provisioned here — the staff
-        // member fills in the rest via their profile page afterward.
+        // Staff accounts bootstrap via an env allowlist or an admin-created
+        // invite (see `before` above) rather than a self-service
+        // registration form, so the minimal professional profile row is
+        // auto-provisioned here — the staff member fills in the rest via
+        // their profile page afterward.
         async after(user) {
           const role = (user as { role?: string }).role;
           const displayName = user.name || user.email;
+          const email = user.email?.toLowerCase();
+          if (email && (await staffAccountRepository.findInvite(email))) {
+            await staffAccountRepository.deleteInvite(email);
+          }
           if (role === "doctor" && !(await doctorRepository.findByUserId(user.id))) {
             await doctorRepository.create({
               userId: user.id,

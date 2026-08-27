@@ -5,3 +5,5 @@ export * from "./patient.js";
 export * from "./appointment.js";
 export * from "./encounter.js";
 export * from "./vital-sign.js";
+export * from "./laboratory.js";
+export * from "./staff-invite.js";

@@ -22,7 +22,7 @@ export function AuthLayout({ children, wide = false }: AuthLayoutProps) {
           {children}
         </div>
       </div>
-      <div className="relative hidden flex-1 items-center justify-center bg-gradient-to-br from-slate-800 to-slate-950 md:flex">
+      <div className="relative hidden flex-1 items-center justify-center bg-linear-to-br from-slate-800 to-slate-950 md:flex">
         <HeartPulse className="h-32 w-32 text-white/10" />
       </div>
     </div>

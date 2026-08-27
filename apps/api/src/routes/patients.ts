@@ -31,8 +31,10 @@ const optionalText = z.preprocess(
   z.string().optional(),
 );
 
+const notInTheFuture = (value: string) => new Date(value).getTime() <= Date.now();
+
 const patientProfileSchema = z.object({
-  birthDate: z.string().min(1),
+  birthDate: z.string().min(1).refine(notInTheFuture, "Date of birth cannot be in the future"),
   gender: z.enum(["male", "female", "other"]),
   address: z.string().min(1),
   occupation: z.string().min(1),

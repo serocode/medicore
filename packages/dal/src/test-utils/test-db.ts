@@ -3,6 +3,7 @@ import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import { type Db, createDbClient } from "../client.js";
 import { doctor } from "../schema/doctor.js";
+import { labTestCatalogItem } from "../schema/laboratory.js";
 
 export const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
@@ -56,10 +57,15 @@ export async function ensureTestDatabase(testDatabaseUrl: string): Promise<void>
  * this, the fixture doctor `ensureTestDoctor` seeds does NOT survive across
  * calls to this function — callers must re-fetch it (call `ensureTestDoctor`
  * again) after every `truncateAll`, not just once in `beforeAll`.
+ *
+ * `lab_test_catalog_item` has no FK into any of the other truncated tables,
+ * so unlike an FK-cascaded table it must be listed explicitly here or its
+ * rows would silently accumulate/duplicate across test runs instead of
+ * being wiped along with everything else.
  */
 export async function truncateAll(db: Db): Promise<void> {
   await db.execute(
-    sql`truncate table "vital_sign", "encounter", "appointment", "patient", "nurse", "doctor", "session", "account", "verification", "user" restart identity cascade`,
+    sql`truncate table "lab_result_parameter", "lab_result", "lab_test_catalog_item", "vital_sign", "encounter", "appointment", "patient", "nurse", "doctor", "staff_invite", "session", "account", "verification", "user" restart identity cascade`,
   );
 }
 
@@ -74,5 +80,25 @@ export async function ensureTestDoctor(db: Db): Promise<{ id: string; name: stri
     .values({ name: TEST_DOCTOR_NAME, specialization: "General" })
     .returning();
   if (!created) throw new Error("Failed to seed test doctor");
+  return created;
+}
+
+const TEST_LAB_TEST_NAME = "Test CBC";
+
+// Same caveat as ensureTestDoctor: `lab_test_catalog_item` doesn't survive
+// truncateAll, so callers must re-fetch it after every call, not just once
+// in `beforeAll`.
+export async function ensureTestLabTestCatalogItem(db: Db): Promise<{ id: string; name: string }> {
+  const [existing] = await db
+    .select()
+    .from(labTestCatalogItem)
+    .where(eq(labTestCatalogItem.name, TEST_LAB_TEST_NAME));
+  if (existing) return existing;
+
+  const [created] = await db
+    .insert(labTestCatalogItem)
+    .values({ category: "hematology", name: TEST_LAB_TEST_NAME })
+    .returning();
+  if (!created) throw new Error("Failed to seed test lab test catalog item");
   return created;
 }

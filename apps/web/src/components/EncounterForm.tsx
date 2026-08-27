@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { type FieldValues, type UseFormRegister, useForm } from "react-hook-form";
 import { z } from "zod";
-import { apiFetch } from "../lib/api-client";
+import { apiFetch, applyApiErrorToForm } from "../lib/api-client";
 import type { Encounter, EncounterType, StaffRole, VitalSign } from "../lib/types";
 import { Button } from "./Button";
 import { Field, Select, Textarea } from "./Field";
@@ -63,6 +63,7 @@ export function EncounterForm({ patientId, role, onSuccess }: EncounterFormProps
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<EncounterFormValues>({
     resolver: zodResolver(encounterFormSchema),
@@ -104,6 +105,7 @@ export function EncounterForm({ patientId, role, onSuccess }: EncounterFormProps
       });
       onSuccess(result);
     } catch (error) {
+      applyApiErrorToForm(error, setError);
       setSubmitError(error instanceof Error ? error.message : "Failed to save encounter");
     }
   }

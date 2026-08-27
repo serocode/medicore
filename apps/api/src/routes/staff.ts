@@ -40,7 +40,7 @@ const nurseProfileSchema = z.object({
 
 staffRoute.get("/me", requireAuth, requireStaff, async (c) => {
   const user = c.get("user");
-  const profile = await getStaffProfileByUserId(user.id, {
+  const profile = await getStaffProfileByUserId(user.id, user.role as "doctor" | "nurse", {
     doctors: doctorRepository,
     nurses: nurseRepository,
   });

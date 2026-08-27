@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
+import { PendingLabRequestsWidget } from "../components/PendingLabRequestsWidget";
+import { ResultsAwaitingReviewWidget } from "../components/ResultsAwaitingReviewWidget";
 import { apiFetch } from "../lib/api-client";
 import type { PatientSummary } from "../lib/types";
 import { useStaffProfile } from "../lib/use-staff-profile";
@@ -37,6 +39,9 @@ export function StaffDashboardPage() {
         <div className="border-b border-slate-200 px-5 py-3">
           <h2 className="font-medium text-slate-900">Patients</h2>
         </div>
+        {!error && patients === null && (
+          <p className="px-5 py-6 text-center text-sm text-slate-500">Loading…</p>
+        )}
         <ul className="divide-y divide-slate-100">
           {patients?.map((patient) => (
             <li key={patient.id} className="flex items-center justify-between gap-4 px-5 py-3">
@@ -72,6 +77,9 @@ export function StaffDashboardPage() {
           )}
         </ul>
       </div>
+
+      <PendingLabRequestsWidget />
+      {role === "doctor" && <ResultsAwaitingReviewWidget />}
     </main>
   );
 }

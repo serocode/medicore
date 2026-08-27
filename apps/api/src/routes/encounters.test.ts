@@ -88,6 +88,54 @@ describe("POST /api/patients/:patientId/encounters", () => {
     expect(res.status).toBe(403);
   });
 
+  it("rejects a negative heart rate", async () => {
+    const { patientId } = await registerAndGetPatientId("encounter-negative-hr@example.com");
+    const nurseCookie = await signInAsNurse(app);
+
+    const res = await app.request(`/api/patients/${patientId}/encounters`, {
+      method: "POST",
+      headers: { Cookie: nurseCookie, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        encounterType: "vitals_only",
+        vitals: { heartRate: -50 },
+      }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects an oxygen saturation above 100", async () => {
+    const { patientId } = await registerAndGetPatientId("encounter-spo2-high@example.com");
+    const nurseCookie = await signInAsNurse(app);
+
+    const res = await app.request(`/api/patients/${patientId}/encounters`, {
+      method: "POST",
+      headers: { Cookie: nurseCookie, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        encounterType: "vitals_only",
+        vitals: { oxygenSaturation: 250 },
+      }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a non-integer heart rate", async () => {
+    const { patientId } = await registerAndGetPatientId("encounter-hr-decimal@example.com");
+    const nurseCookie = await signInAsNurse(app);
+
+    const res = await app.request(`/api/patients/${patientId}/encounters`, {
+      method: "POST",
+      headers: { Cookie: nurseCookie, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        encounterType: "vitals_only",
+        vitals: { heartRate: 76.5 },
+      }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+
   it("rejects a patient trying to record an encounter (staff-only)", async () => {
     const { patientId, cookie } = await registerAndGetPatientId(
       "encounter-patient-self@example.com",

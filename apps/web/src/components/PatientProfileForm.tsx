@@ -3,6 +3,7 @@ import { FileText, MapPin, Phone, ShieldCheck, User as UserIcon } from "lucide-r
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { applyApiErrorToForm } from "../lib/api-client";
 import { authClient, useSession } from "../lib/auth-client";
 import { IDENTIFICATION_TYPES } from "../lib/constants";
 import { useDoctors } from "../lib/use-doctors";
@@ -52,6 +53,7 @@ export function PatientProfileForm({ mode, defaultValues, onSubmit }: PatientPro
     register,
     handleSubmit,
     setValue,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<PatientFormValues>({
     resolver: zodResolver(patientFormSchema),
@@ -120,8 +122,6 @@ export function PatientProfileForm({ mode, defaultValues, onSubmit }: PatientPro
     setFileError(undefined);
 
     try {
-      await authClient.updateUser({ name: values.fullName });
-
       const formData = new FormData();
       for (const [key, value] of Object.entries(values)) {
         if (key === "fullName") continue;
@@ -131,8 +131,14 @@ export function PatientProfileForm({ mode, defaultValues, onSubmit }: PatientPro
         formData.append("identificationDocument", file);
       }
 
+      // Save the profile record first — it's the mutation that can fail
+      // validation. Only update the account display name once that's
+      // committed, so a rejected submission never leaves the name changed
+      // with nothing else saved to match it.
       await onSubmit(formData);
+      await authClient.updateUser({ name: values.fullName });
     } catch (error) {
+      applyApiErrorToForm(error, setError);
       setSubmitError(
         error instanceof Error
           ? error.message
@@ -154,7 +160,12 @@ export function PatientProfileForm({ mode, defaultValues, onSubmit }: PatientPro
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Date of birth" htmlFor="birthDate" error={errors.birthDate?.message}>
-            <TextInput id="birthDate" type="date" {...register("birthDate")} />
+            <TextInput
+              id="birthDate"
+              type="date"
+              max={new Date().toISOString().slice(0, 10)}
+              {...register("birthDate")}
+            />
           </Field>
           <Field label="Gender" htmlFor="gender" error={errors.gender?.message}>
             <RadioGroupField

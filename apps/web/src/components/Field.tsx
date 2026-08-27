@@ -1,10 +1,13 @@
 import type { LucideIcon } from "lucide-react";
 import {
   type InputHTMLAttributes,
+  type ReactElement,
   type ReactNode,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
+  cloneElement,
   forwardRef,
+  isValidElement,
 } from "react";
 import type { UseFormRegisterReturn } from "react-hook-form";
 
@@ -24,14 +27,25 @@ interface FieldProps {
 }
 
 export function Field({ label, htmlFor, error, children }: FieldProps) {
+  const errorId = `${htmlFor}-error`;
+  // Wires the error state onto whatever input this Field wraps — every
+  // caller gets aria-invalid/aria-describedby for free instead of needing
+  // to pass them through by hand at each call site.
+  const content = isValidElement(children)
+    ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+        "aria-invalid": error ? true : undefined,
+        "aria-describedby": error ? errorId : undefined,
+      })
+    : children;
+
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={htmlFor} className="text-sm font-medium text-slate-700">
         {label}
       </label>
-      {children}
+      {content}
       {error && (
-        <p id={`${htmlFor}-error`} role="alert" className="text-sm text-red-600">
+        <p id={errorId} role="alert" className="text-sm text-red-600">
           {error}
         </p>
       )}

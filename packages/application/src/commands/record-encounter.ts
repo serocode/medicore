@@ -1,4 +1,4 @@
-import { calculateBmi } from "@healthcare/domain";
+import { assertVitalSignsInRange, calculateBmi } from "@healthcare/domain";
 import { StaffPermissionError } from "../errors.js";
 import type {
   Encounter,
@@ -35,6 +35,10 @@ export async function recordEncounter(
 ): Promise<RecordEncounterResult> {
   if (input.encounter.recordedByRole === "nurse" && input.encounter.diagnosis) {
     throw new StaffPermissionError("Nurses cannot record a diagnosis");
+  }
+
+  if (input.vitals) {
+    assertVitalSignsInRange(input.vitals);
   }
 
   const encounter = await deps.encounters.create(input.encounter);

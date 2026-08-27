@@ -1,16 +1,23 @@
 import {
   ApplicationError,
   AppointmentNotFoundError,
+  CannotModifyOwnAccountError,
+  LabResultConcurrentUpdateError,
+  LabResultNotFoundError,
+  LabTestCatalogItemNotFoundError,
   PatientAlreadyRegisteredError,
   PatientNotFoundError,
+  ReviewInterpretationRequiredError,
   StaffPermissionError,
   StaffProfileNotFoundError,
+  UserAccountNotFoundError,
 } from "@healthcare/application";
 import {
   CancellationReasonRequiredError,
   DoctorSlotUnavailableError,
   DomainError,
   InvalidAppointmentTransitionError,
+  InvalidLabResultTransitionError,
   MissingConsentError,
 } from "@healthcare/domain";
 import type { Context } from "hono";
@@ -34,7 +41,10 @@ export function mapErrorToResponse(error: unknown, c: Context): Response {
     error instanceof PatientNotFoundError ||
     error instanceof AppointmentNotFoundError ||
     error instanceof StaffProfileNotFoundError ||
-    error instanceof InvalidStorageKeyError
+    error instanceof InvalidStorageKeyError ||
+    error instanceof LabResultNotFoundError ||
+    error instanceof LabTestCatalogItemNotFoundError ||
+    error instanceof UserAccountNotFoundError
   ) {
     return c.json({ error: error.message }, 404);
   }
@@ -42,12 +52,14 @@ export function mapErrorToResponse(error: unknown, c: Context): Response {
   if (
     error instanceof PatientAlreadyRegisteredError ||
     error instanceof InvalidAppointmentTransitionError ||
-    error instanceof DoctorSlotUnavailableError
+    error instanceof DoctorSlotUnavailableError ||
+    error instanceof InvalidLabResultTransitionError ||
+    error instanceof LabResultConcurrentUpdateError
   ) {
     return c.json({ error: error.message }, 409);
   }
 
-  if (error instanceof StaffPermissionError) {
+  if (error instanceof StaffPermissionError || error instanceof CannotModifyOwnAccountError) {
     return c.json({ error: error.message }, 403);
   }
 
@@ -55,7 +67,8 @@ export function mapErrorToResponse(error: unknown, c: Context): Response {
     error instanceof CancellationReasonRequiredError ||
     error instanceof MissingConsentError ||
     error instanceof UnsupportedFileTypeError ||
-    error instanceof FileTooLargeError
+    error instanceof FileTooLargeError ||
+    error instanceof ReviewInterpretationRequiredError
   ) {
     return c.json({ error: error.message }, 400);
   }

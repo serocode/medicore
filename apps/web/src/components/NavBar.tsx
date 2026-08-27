@@ -1,6 +1,10 @@
-import { Link, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { authClient, useSession } from "../lib/auth-client";
 import { usePatientProfile } from "../lib/use-patient-profile";
+
+function navLinkClassName({ isActive }: { isActive: boolean }): string {
+  return isActive ? "font-medium text-slate-900" : "text-slate-600 hover:text-slate-900";
+}
 
 export function NavBar() {
   const { data: session } = useSession();
@@ -15,39 +19,39 @@ export function NavBar() {
 
   return (
     <nav className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
-      <Link to="/" className="font-semibold text-slate-900">
+      <NavLink to="/" className="font-semibold text-slate-900">
         Healthcare
-      </Link>
+      </NavLink>
       <div className="flex items-center gap-4 text-sm">
         {role === "admin" ? (
-          <Link to="/admin" className="text-slate-600 hover:text-slate-900">
+          <NavLink to="/admin" className={navLinkClassName}>
             Admin dashboard
-          </Link>
+          </NavLink>
         ) : role === "doctor" || role === "nurse" ? (
           <>
-            <Link to="/staff/dashboard" className="text-slate-600 hover:text-slate-900">
+            <NavLink to="/staff/dashboard" className={navLinkClassName}>
               Dashboard
-            </Link>
-            <Link to="/staff/profile" className="text-slate-600 hover:text-slate-900">
+            </NavLink>
+            <NavLink to="/staff/profile" className={navLinkClassName}>
               My profile
-            </Link>
+            </NavLink>
           </>
         ) : isProfileLoading ? null : patient ? (
           <>
-            <Link to="/account" className="text-slate-600 hover:text-slate-900">
+            <NavLink to="/account" className={navLinkClassName}>
               Account
-            </Link>
-            <Link to="/book" className="text-slate-600 hover:text-slate-900">
+            </NavLink>
+            <NavLink to="/book" className={navLinkClassName}>
               Book appointment
-            </Link>
-            <Link to="/dashboard" className="text-slate-600 hover:text-slate-900">
+            </NavLink>
+            <NavLink to="/dashboard" className={navLinkClassName} end>
               My appointments
-            </Link>
+            </NavLink>
           </>
         ) : (
-          <Link to="/register" className="text-slate-600 hover:text-slate-900">
+          <NavLink to="/register" className={navLinkClassName}>
             Register
-          </Link>
+          </NavLink>
         )}
         {session && (
           <button

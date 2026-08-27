@@ -34,3 +34,39 @@ export class StaffPermissionError extends ApplicationError {
     super(message);
   }
 }
+
+export class LabResultNotFoundError extends ApplicationError {
+  constructor() {
+    super("Laboratory result not found");
+  }
+}
+
+export class LabTestCatalogItemNotFoundError extends ApplicationError {
+  constructor() {
+    super("Laboratory test catalog item not found");
+  }
+}
+
+export class LabResultConcurrentUpdateError extends ApplicationError {
+  constructor() {
+    super("This laboratory result was changed by someone else — reload it and try again");
+  }
+}
+
+export class ReviewInterpretationRequiredError extends ApplicationError {
+  constructor() {
+    super("A clinical interpretation is required to review a laboratory result");
+  }
+}
+
+export class UserAccountNotFoundError extends ApplicationError {
+  constructor() {
+    super("Account not found");
+  }
+}
+
+export class CannotModifyOwnAccountError extends ApplicationError {
+  constructor() {
+    super("You can't change your own role or disable your own account — ask another administrator");
+  }
+}

@@ -1,17 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { EncounterTimeline } from "../components/EncounterTimeline";
+import { LabResultsHistoryTable } from "../components/LabResultsHistoryTable";
 import { PatientHeader } from "../components/PatientHeader";
+import { RecentLabResultsCard } from "../components/RecentLabResultsCard";
 import { VitalsHistoryTable } from "../components/VitalsHistoryTable";
 import { apiFetch } from "../lib/api-client";
-import type { Encounter, Patient, VitalSign } from "../lib/types";
+import type { Encounter, LabResult, Patient, VitalSign } from "../lib/types";
 
-type TabKey = "overview" | "vitals" | "timeline";
+type TabKey = "overview" | "vitals" | "timeline" | "labs";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "vitals", label: "Vitals" },
   { key: "timeline", label: "Timeline" },
+  { key: "labs", label: "Labs" },
 ];
 
 export function PatientClinicalRecordPage() {
@@ -24,6 +27,7 @@ export function PatientClinicalRecordPage() {
   const [email, setEmail] = useState("");
   const [encounters, setEncounters] = useState<Encounter[] | null>(null);
   const [vitals, setVitals] = useState<VitalSign[] | null>(null);
+  const [labResults, setLabResults] = useState<LabResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,13 +36,15 @@ export function PatientClinicalRecordPage() {
       apiFetch<{ patient: Patient; name: string; email: string }>(`/api/patients/${patientId}`),
       apiFetch<{ encounters: Encounter[] }>(`/api/patients/${patientId}/encounters`),
       apiFetch<{ vitals: VitalSign[] }>(`/api/patients/${patientId}/vitals`),
+      apiFetch<{ labResults: LabResult[] }>(`/api/patients/${patientId}/lab-results`),
     ])
-      .then(([patientResult, encountersResult, vitalsResult]) => {
+      .then(([patientResult, encountersResult, vitalsResult, labResultsResult]) => {
         setPatient(patientResult.patient);
         setName(patientResult.name);
         setEmail(patientResult.email);
         setEncounters(encountersResult.encounters);
         setVitals(vitalsResult.vitals);
+        setLabResults(labResultsResult.labResults);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load"));
   }, [patientId]);
@@ -80,12 +86,20 @@ export function PatientClinicalRecordPage() {
             </button>
           ))}
         </nav>
-        <Link
-          to={`/patients/${patientId}/encounters/new`}
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          New Encounter
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to={`/patients/${patientId}/lab-results/new`}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50"
+          >
+            Request Lab Test
+          </Link>
+          <Link
+            to={`/patients/${patientId}/encounters/new`}
+            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            New Encounter
+          </Link>
+        </div>
       </div>
 
       {tab === "overview" && (
@@ -125,11 +139,18 @@ export function PatientClinicalRecordPage() {
               <p className="text-sm text-slate-500">No encounters yet</p>
             )}
           </div>
+
+          <div className="sm:col-span-2">
+            <RecentLabResultsCard labResults={labResults ?? []} patientId={patientId ?? ""} />
+          </div>
         </div>
       )}
 
       {tab === "vitals" && <VitalsHistoryTable vitals={vitals ?? []} />}
       {tab === "timeline" && <EncounterTimeline encounters={encounters ?? []} />}
+      {tab === "labs" && (
+        <LabResultsHistoryTable labResults={labResults ?? []} patientId={patientId ?? ""} />
+      )}
     </main>
   );
 }

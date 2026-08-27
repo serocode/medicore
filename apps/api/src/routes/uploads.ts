@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { fileStorage } from "../lib/storage.js";
 import type { AuthVariables } from "../middleware/require-auth.js";
 import { requireAuth } from "../middleware/require-auth.js";
-import { patientRepository } from "../repos.js";
+import { labResultRepository, patientRepository } from "../repos.js";
 
 export const uploadsRoute = new Hono<{ Variables: AuthVariables }>();
 
@@ -17,9 +17,15 @@ uploadsRoute.get("/:key", requireAuth, async (c) => {
   const user = c.get("user");
   const key = c.req.param("key");
 
-  if (user.role !== "admin") {
+  if (user.role === "doctor" || user.role === "nurse") {
+    // Unscoped, matching their existing unscoped access to encounters/vitals.
+  } else if (user.role !== "admin") {
     const patient = await getPatientByUserId(user.id, { patients: patientRepository });
-    if (!patient || patient.identificationDocumentPath !== key) {
+    const ownsIdDocument = patient?.identificationDocumentPath === key;
+    const ownsLabResultFile = patient
+      ? (await labResultRepository.findPatientIdByReportFilePath(key)) === patient.id
+      : false;
+    if (!ownsIdDocument && !ownsLabResultFile) {
       return c.json({ error: "Forbidden" }, 403);
     }
   }

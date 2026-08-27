@@ -25,20 +25,38 @@ const optionalText = z.preprocess(
   (value) => (value === "" ? undefined : value),
   z.string().optional(),
 );
-const optionalNumber = z.preprocess(
-  (value) => (value === "" || value === undefined || value === null ? undefined : value),
-  z.coerce.number().optional(),
-);
+function optionalRange(min: number, max: number, label: string) {
+  return z.preprocess(
+    (value) => (value === "" || value === undefined || value === null ? undefined : value),
+    z.coerce
+      .number()
+      .min(min, `${label} must be at least ${min}`)
+      .max(max, `${label} must be at most ${max}`)
+      .optional(),
+  );
+}
+
+function optionalIntRange(min: number, max: number, label: string) {
+  return z.preprocess(
+    (value) => (value === "" || value === undefined || value === null ? undefined : value),
+    z.coerce
+      .number()
+      .int(`${label} must be a whole number`)
+      .min(min, `${label} must be at least ${min}`)
+      .max(max, `${label} must be at most ${max}`)
+      .optional(),
+  );
+}
 
 const vitalsSchema = z.object({
-  bpSystolic: optionalNumber,
-  bpDiastolic: optionalNumber,
-  heartRate: optionalNumber,
-  respiratoryRate: optionalNumber,
-  temperatureCelsius: optionalNumber,
-  oxygenSaturation: optionalNumber,
-  weightKg: optionalNumber,
-  heightCm: optionalNumber,
+  bpSystolic: optionalIntRange(40, 260, "Systolic blood pressure"),
+  bpDiastolic: optionalIntRange(20, 200, "Diastolic blood pressure"),
+  heartRate: optionalIntRange(20, 300, "Heart rate"),
+  respiratoryRate: optionalIntRange(4, 60, "Respiratory rate"),
+  temperatureCelsius: optionalRange(25, 45, "Temperature"),
+  oxygenSaturation: optionalIntRange(0, 100, "Oxygen saturation"),
+  weightKg: optionalRange(0.5, 500, "Weight"),
+  heightCm: optionalRange(20, 300, "Height"),
   notes: optionalText,
 });
 
@@ -65,7 +83,7 @@ encountersRoute.post("/:patientId/encounters", requireAuth, requireStaff, async 
     throw new PatientNotFoundError();
   }
 
-  const staffProfile = await getStaffProfileByUserId(user.id, {
+  const staffProfile = await getStaffProfileByUserId(user.id, user.role as "doctor" | "nurse", {
     doctors: doctorRepository,
     nurses: nurseRepository,
   });

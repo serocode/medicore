@@ -1,4 +1,4 @@
-import type { AppointmentState, AppointmentStatus } from "@healthcare/domain";
+import type { AppointmentState, AppointmentStatus, LabResultStatus } from "@healthcare/domain";
 
 export type StaffRole = "doctor" | "nurse";
 
@@ -178,6 +178,158 @@ export interface PatientRepository {
   getContactEmail(patientId: string): Promise<string | null>;
   getContactInfo(patientId: string): Promise<{ name: string; email: string } | null>;
   listActiveWithNames(): Promise<PatientSummary[]>;
+}
+
+export type LabTestCategory =
+  | "hematology"
+  | "blood_chemistry"
+  | "urinalysis"
+  | "microbiology"
+  | "immunology"
+  | "imaging"
+  | "pathology"
+  | "other";
+
+export type LabResultFlag = "normal" | "abnormal" | "critical";
+
+export interface LabTestCatalogItem {
+  id: string;
+  category: LabTestCategory;
+  name: string;
+  isActive: boolean;
+}
+
+export type NewLabTestCatalogItem = Omit<LabTestCatalogItem, "id">;
+
+export interface LabResultParameter {
+  id: string;
+  labResultId: string;
+  parameterName: string;
+  value: string;
+  unit: string | null;
+  referenceRange: string | null;
+  flag: LabResultFlag | null;
+  remarks: string | null;
+  sortOrder: number;
+}
+
+export type NewLabResultParameter = Omit<LabResultParameter, "id" | "labResultId">;
+
+export interface LabResult {
+  id: string;
+  patientId: string;
+  encounterId: string | null;
+  catalogItemId: string;
+  testName: string;
+  category: LabTestCategory;
+  status: LabResultStatus;
+
+  requestedByUserId: string;
+  requestedByName: string;
+  requestedByRole: StaffRole;
+  requestNotes: string | null;
+  requestedAt: Date;
+
+  datePerformed: Date | null;
+  dateReleased: Date | null;
+  facility: string | null;
+  findings: string | null;
+  summary: string | null;
+  interpretation: string | null;
+  remarks: string | null;
+
+  reportFilePath: string | null;
+  uploadedByUserId: string | null;
+  uploadedByName: string | null;
+  uploadedByRole: StaffRole | null;
+  uploadedAt: Date | null;
+
+  reviewedByUserId: string | null;
+  reviewedByName: string | null;
+  reviewedAt: Date | null;
+  reviewInterpretation: string | null;
+  reviewNotes: string | null;
+  followUpRecommendation: string | null;
+  actionTaken: string | null;
+
+  cancellationReason: string | null;
+}
+
+export type NewLabResult = Omit<
+  LabResult,
+  "id" | "status" | "requestedAt" | "reportFilePath" | "reviewedAt"
+> & { status?: LabResultStatus };
+
+export interface LabResultWithPatientName extends LabResult {
+  patientName: string;
+}
+
+export interface LabTestCatalogRepository {
+  list(activeOnly?: boolean): Promise<LabTestCatalogItem[]>;
+  findById(id: string): Promise<LabTestCatalogItem | null>;
+}
+
+export interface LabResultRepository {
+  create(input: NewLabResult): Promise<LabResult>;
+  findById(id: string): Promise<LabResult | null>;
+  listByPatientId(patientId: string): Promise<LabResult[]>;
+  listAll(statuses?: LabResultStatus[]): Promise<LabResult[]>;
+  // Cross-patient, name-joined — backs the dashboard widgets, which need
+  // "which patient" alongside the test, unlike the by-patient listing.
+  listAllWithPatientName(statuses?: LabResultStatus[]): Promise<LabResultWithPatientName[]>;
+  // `expectedStatus` guards against a lost update: the write only applies if
+  // the row's status still matches what the caller read before validating
+  // and building `labResult`. A mismatch means another request changed the
+  // status concurrently, so the caller's decision is now stale.
+  update(labResult: LabResult, expectedStatus: LabResultStatus): Promise<LabResult>;
+  listParametersByLabResultId(labResultId: string): Promise<LabResultParameter[]>;
+  replaceParameters(
+    labResultId: string,
+    parameters: NewLabResultParameter[],
+  ): Promise<LabResultParameter[]>;
+  findPatientIdByReportFilePath(storageKey: string): Promise<string | null>;
+}
+
+export type UserAccountRole = "patient" | "doctor" | "nurse" | "admin";
+
+export interface UserAccount {
+  id: string;
+  name: string;
+  email: string;
+  role: UserAccountRole;
+  disabledAt: Date | null;
+  createdAt: Date;
+}
+
+export interface StaffInvite {
+  email: string;
+  role: "doctor" | "nurse" | "admin";
+  invitedByUserId: string;
+  createdAt: Date;
+}
+
+export interface NewStaffInvite {
+  email: string;
+  role: "doctor" | "nurse" | "admin";
+  invitedByUserId: string;
+}
+
+export interface StaffAccountRepository {
+  // Every non-patient account — the roster an admin manages.
+  listStaffAndAdmins(): Promise<UserAccount[]>;
+  findById(userId: string): Promise<UserAccount | null>;
+  updateRole(userId: string, role: UserAccountRole): Promise<UserAccount>;
+  setDisabled(userId: string, disabled: boolean): Promise<UserAccount>;
+  // Immediately invalidates any of the user's active sessions — used when
+  // disabling an account so access ends at once rather than at next
+  // session-lookup (which would already reject them, but this is belt and
+  // suspenders for a security-sensitive action).
+  revokeSessions(userId: string): Promise<void>;
+
+  listInvites(): Promise<StaffInvite[]>;
+  findInvite(email: string): Promise<StaffInvite | null>;
+  createInvite(invite: NewStaffInvite): Promise<StaffInvite>;
+  deleteInvite(email: string): Promise<void>;
 }
 
 export interface AppointmentRepository {

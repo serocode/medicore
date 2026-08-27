@@ -10,10 +10,11 @@ import { usePatientProfile } from "../lib/use-patient-profile";
 
 export function AccountPage() {
   const navigate = useNavigate();
-  const { data: patient, isLoading, error } = usePatientProfile();
+  const { data: patient, isLoading, error, refetch } = usePatientProfile();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | undefined>(undefined);
+  const [saved, setSaved] = useState(false);
 
   async function handleDelete() {
     setIsDeleting(true);
@@ -48,6 +49,12 @@ export function AccountPage() {
       <h1 className="text-2xl font-semibold text-slate-900">Your account</h1>
       <p className="mb-8 mt-1 text-slate-600">Review and update your details.</p>
 
+      {saved && (
+        <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          Your changes have been saved.
+        </p>
+      )}
+
       <PatientProfileForm
         mode="edit"
         defaultValues={{
@@ -71,7 +78,10 @@ export function AccountPage() {
           consentPrivacy: patient.consentPrivacy,
         }}
         onSubmit={async (formData) => {
+          setSaved(false);
           await apiFetchForm("/api/patients/me", formData, { method: "PATCH" });
+          refetch();
+          setSaved(true);
         }}
       />
 

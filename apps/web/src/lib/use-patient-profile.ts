@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ApiError, apiFetch } from "./api-client";
 import type { Patient } from "./types";
 
@@ -6,19 +6,21 @@ interface PatientProfileState {
   data: Patient | null;
   isLoading: boolean;
   error: string | null;
+  refetch: () => void;
 }
 
 // A 404 means "not registered yet" — an expected state for a logged-in
 // patient, not a failure — so it resolves to `data: null`, not `error`.
 export function usePatientProfile(): PatientProfileState {
-  const [state, setState] = useState<PatientProfileState>({
+  const [state, setState] = useState<Omit<PatientProfileState, "refetch">>({
     data: null,
     isLoading: true,
     error: null,
   });
 
-  useEffect(() => {
+  const load = useCallback(() => {
     let cancelled = false;
+    setState((prev) => ({ ...prev, isLoading: true }));
 
     apiFetch<{ patient: Patient }>("/api/patients/me")
       .then((result) => {
@@ -42,5 +44,7 @@ export function usePatientProfile(): PatientProfileState {
     };
   }, []);
 
-  return state;
+  useEffect(() => load(), [load]);
+
+  return { ...state, refetch: load };
 }

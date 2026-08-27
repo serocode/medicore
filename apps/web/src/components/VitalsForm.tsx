@@ -11,18 +11,41 @@ export function VitalsForm({ register }: VitalsFormProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-3">
       <Field label="Blood pressure — systolic (mmHg)" htmlFor="bpSystolic">
-        <TextInput id="bpSystolic" type="number" placeholder="120" {...register("bpSystolic")} />
+        <TextInput
+          id="bpSystolic"
+          type="number"
+          min={40}
+          max={260}
+          placeholder="120"
+          {...register("bpSystolic")}
+        />
       </Field>
       <Field label="Blood pressure — diastolic (mmHg)" htmlFor="bpDiastolic">
-        <TextInput id="bpDiastolic" type="number" placeholder="80" {...register("bpDiastolic")} />
+        <TextInput
+          id="bpDiastolic"
+          type="number"
+          min={20}
+          max={200}
+          placeholder="80"
+          {...register("bpDiastolic")}
+        />
       </Field>
       <Field label="Heart rate (bpm)" htmlFor="heartRate">
-        <TextInput id="heartRate" type="number" placeholder="76" {...register("heartRate")} />
+        <TextInput
+          id="heartRate"
+          type="number"
+          min={20}
+          max={300}
+          placeholder="76"
+          {...register("heartRate")}
+        />
       </Field>
       <Field label="Respiratory rate (/min)" htmlFor="respiratoryRate">
         <TextInput
           id="respiratoryRate"
           type="number"
+          min={4}
+          max={60}
           placeholder="18"
           {...register("respiratoryRate")}
         />
@@ -32,6 +55,8 @@ export function VitalsForm({ register }: VitalsFormProps) {
           id="temperatureCelsius"
           type="number"
           step="0.1"
+          min={25}
+          max={45}
           placeholder="36.7"
           {...register("temperatureCelsius")}
         />
@@ -40,6 +65,8 @@ export function VitalsForm({ register }: VitalsFormProps) {
         <TextInput
           id="oxygenSaturation"
           type="number"
+          min={0}
+          max={100}
           placeholder="98"
           {...register("oxygenSaturation")}
         />
@@ -49,6 +76,8 @@ export function VitalsForm({ register }: VitalsFormProps) {
           id="weightKg"
           type="number"
           step="0.1"
+          min={0.5}
+          max={500}
           placeholder="65"
           {...register("weightKg")}
         />
@@ -58,6 +87,8 @@ export function VitalsForm({ register }: VitalsFormProps) {
           id="heightCm"
           type="number"
           step="0.1"
+          min={20}
+          max={300}
           placeholder="170"
           {...register("heightCm")}
         />

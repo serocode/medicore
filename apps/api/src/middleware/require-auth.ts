@@ -17,6 +17,10 @@ export const requireAuth = createMiddleware<{ Variables: AuthVariables }>(async 
     return c.json({ error: "Unauthorized" }, 401);
   }
 
+  if ((session.user as { disabledAt?: Date | string | null }).disabledAt) {
+    return c.json({ error: "This account has been disabled" }, 401);
+  }
+
   c.set("user", {
     id: session.user.id,
     email: session.user.email,

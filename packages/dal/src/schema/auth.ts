@@ -13,6 +13,11 @@ export const user = pgTable("user", {
   // Server-assigned only (Better Auth `additionalFields.role` has `input: false`) —
   // never trust a client-supplied role. See apps/api/src/auth.ts.
   role: text("role").notNull().default("patient"),
+  // Set by an administrator to lock a staff account out without deleting its
+  // history (encounters, lab results, etc. all reference this user). Null
+  // means active. Also a Better Auth `additionalFields` entry, checked in
+  // requireAuth — see apps/api/src/auth.ts and middleware/require-auth.ts.
+  disabledAt: timestamp("disabled_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
