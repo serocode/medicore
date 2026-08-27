@@ -3,6 +3,8 @@ import {
   AppointmentNotFoundError,
   PatientAlreadyRegisteredError,
   PatientNotFoundError,
+  StaffPermissionError,
+  StaffProfileNotFoundError,
 } from "@healthcare/application";
 import {
   CancellationReasonRequiredError,
@@ -31,6 +33,7 @@ export function mapErrorToResponse(error: unknown, c: Context): Response {
   if (
     error instanceof PatientNotFoundError ||
     error instanceof AppointmentNotFoundError ||
+    error instanceof StaffProfileNotFoundError ||
     error instanceof InvalidStorageKeyError
   ) {
     return c.json({ error: error.message }, 404);
@@ -42,6 +45,10 @@ export function mapErrorToResponse(error: unknown, c: Context): Response {
     error instanceof DoctorSlotUnavailableError
   ) {
     return c.json({ error: error.message }, 409);
+  }
+
+  if (error instanceof StaffPermissionError) {
+    return c.json({ error: error.message }, 403);
   }
 
   if (

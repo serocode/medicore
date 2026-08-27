@@ -1,0 +1,1 @@
+ALTER TABLE "patient" ADD COLUMN "deleted_at" timestamp;

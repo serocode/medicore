@@ -4,6 +4,7 @@ import { emailOTP } from "better-auth/plugins";
 import { db } from "./db.js";
 import { sendOtpEmail } from "./email.js";
 import { env } from "./env.js";
+import { doctorRepository, nurseRepository } from "./repos.js";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
@@ -36,10 +37,44 @@ export const auth = betterAuth({
       create: {
         async before(user) {
           const email = user.email?.toLowerCase();
-          if (email && env.adminEmails.has(email)) {
-            return { data: { ...user, role: "admin" } };
-          }
+          if (!email) return;
+          if (env.adminEmails.has(email)) return { data: { ...user, role: "admin" } };
+          if (env.doctorEmails.has(email)) return { data: { ...user, role: "doctor" } };
+          if (env.nurseEmails.has(email)) return { data: { ...user, role: "nurse" } };
           return;
+        },
+        // Staff accounts bootstrap via an env allowlist (like admin does)
+        // rather than a self-service registration form, so the minimal
+        // professional profile row is auto-provisioned here — the staff
+        // member fills in the rest via their profile page afterward.
+        async after(user) {
+          const role = (user as { role?: string }).role;
+          const displayName = user.name || user.email;
+          if (role === "doctor" && !(await doctorRepository.findByUserId(user.id))) {
+            await doctorRepository.create({
+              userId: user.id,
+              name: displayName,
+              specialization: "General Practice",
+              imageUrl: null,
+              title: null,
+              department: null,
+              licenseNumber: null,
+              contactPhone: null,
+              bio: null,
+              yearsOfExperience: null,
+            });
+          } else if (role === "nurse" && !(await nurseRepository.findByUserId(user.id))) {
+            await nurseRepository.create({
+              userId: user.id,
+              name: displayName,
+              title: null,
+              department: null,
+              licenseNumber: null,
+              contactPhone: null,
+              bio: null,
+              imageUrl: null,
+            });
+          }
         },
       },
     },

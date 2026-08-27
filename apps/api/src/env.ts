@@ -10,6 +10,8 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default("Healthcare <onboarding@resend.dev>"),
   ADMIN_EMAILS: z.string().optional(),
+  DOCTOR_EMAILS: z.string().optional(),
+  NURSE_EMAILS: z.string().optional(),
   UPLOAD_DIR: z.string().default("./uploads"),
   MAX_UPLOAD_SIZE_MB: z.coerce.number().positive().default(5),
 });
@@ -25,12 +27,18 @@ function loadEnv() {
 
 const rawEnv = loadEnv();
 
-export const env = {
-  ...rawEnv,
-  adminEmails: new Set(
-    (rawEnv.ADMIN_EMAILS ?? "")
+function parseEmailAllowlist(value: string | undefined): Set<string> {
+  return new Set(
+    (value ?? "")
       .split(",")
       .map((email) => email.trim().toLowerCase())
       .filter(Boolean),
-  ),
+  );
+}
+
+export const env = {
+  ...rawEnv,
+  adminEmails: parseEmailAllowlist(rawEnv.ADMIN_EMAILS),
+  doctorEmails: parseEmailAllowlist(rawEnv.DOCTOR_EMAILS),
+  nurseEmails: parseEmailAllowlist(rawEnv.NURSE_EMAILS),
 };

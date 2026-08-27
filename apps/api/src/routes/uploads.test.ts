@@ -1,5 +1,5 @@
 import { ensureTestDoctor, truncateAll } from "@healthcare/dal/src/test-utils/test-db.js";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { app } from "../app.js";
 import { db } from "../db.js";
 import { signInAsAdmin, signInAsPatient } from "../test-utils/api-test-client.js";
@@ -12,12 +12,11 @@ interface PatientResponse {
 
 let doctorId: string;
 
-beforeAll(async () => {
-  doctorId = (await ensureTestDoctor(db)).id;
-});
-
 beforeEach(async () => {
   await truncateAll(db);
+  // truncateAll wipes `doctor` too (it now has a live FK to `user`), so the
+  // fixture doctor must be re-seeded — and re-captured — every time.
+  doctorId = (await ensureTestDoctor(db)).id;
 });
 
 describe("GET /api/uploads/:key", () => {

@@ -1,7 +1,7 @@
 import { DoctorSlotUnavailableError } from "@healthcare/domain";
 import { describe, expect, it } from "vitest";
 import { AppointmentNotFoundError } from "../errors.js";
-import type { Appointment, AppointmentRepository } from "../ports.js";
+import type { Appointment, AppointmentRepository, AppointmentWithDetails } from "../ports.js";
 import { confirmAppointment } from "./confirm-appointment.js";
 
 function makeAppointment(overrides: Partial<Appointment> = {}): Appointment {
@@ -41,6 +41,14 @@ class InMemoryAppointmentRepository implements AppointmentRepository {
 
   async listAll(): Promise<Appointment[]> {
     return this.appointments;
+  }
+
+  async listByPatientIdDetailed(): Promise<AppointmentWithDetails[]> {
+    throw new Error("not implemented");
+  }
+
+  async listAllDetailed(): Promise<AppointmentWithDetails[]> {
+    throw new Error("not implemented");
   }
 
   async findScheduledForDoctorAt(doctorId: string, scheduledAt: Date): Promise<Appointment | null> {

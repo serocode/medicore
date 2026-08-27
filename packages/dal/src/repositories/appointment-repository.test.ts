@@ -22,11 +22,14 @@ beforeAll(async () => {
   db = createDbClient(TEST_DATABASE_URL);
   repo = new DrizzleAppointmentRepository(db);
   patientRepo = new DrizzlePatientRepository(db);
-  doctorId = (await ensureTestDoctor(db)).id;
 });
 
 beforeEach(async () => {
   await truncateAll(db);
+  // truncateAll wipes `doctor` too (it now has a live FK to `user`), so the
+  // fixture doctor must be re-seeded — and re-captured — every time, not
+  // just once in beforeAll.
+  doctorId = (await ensureTestDoctor(db)).id;
 });
 
 async function createTestPatient() {
@@ -46,10 +49,14 @@ async function createTestPatient() {
     currentMedications: null,
     familyMedicalHistory: null,
     pastMedicalHistory: null,
+    identificationType: "Passport",
+    identificationNumber: "X1234567",
     identificationDocumentPath: "id.pdf",
+    bloodType: null,
     consentTreatment: true,
     consentDisclosure: true,
     consentPrivacy: true,
+    deletedAt: null,
   });
 }
 

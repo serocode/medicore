@@ -25,6 +25,8 @@ export default defineConfig({
       RESEND_API_KEY: "",
       EMAIL_FROM: "Healthcare <onboarding@resend.dev>",
       ADMIN_EMAILS: "admin-test@example.com",
+      DOCTOR_EMAILS: "doctor-test@example.com",
+      NURSE_EMAILS: "nurse-test@example.com",
       UPLOAD_DIR: "./uploads-test",
       MAX_UPLOAD_SIZE_MB: "5",
     },

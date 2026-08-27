@@ -22,3 +22,15 @@ export class AppointmentNotFoundError extends ApplicationError {
     super("Appointment not found");
   }
 }
+
+export class StaffProfileNotFoundError extends ApplicationError {
+  constructor() {
+    super("Staff profile not found");
+  }
+}
+
+export class StaffPermissionError extends ApplicationError {
+  constructor(message = "Not permitted for this role") {
+    super(message);
+  }
+}

@@ -1,5 +1,5 @@
 import type { AppointmentStatus } from "@healthcare/domain";
-import type { Appointment, AppointmentRepository } from "../ports.js";
+import type { Appointment, AppointmentRepository, AppointmentWithDetails } from "../ports.js";
 
 export interface ListAppointmentsFilter {
   patientId?: string;
@@ -16,4 +16,15 @@ export async function listAppointments(
   }
 
   return deps.appointments.listAll(filter.status);
+}
+
+export async function listAppointmentsWithDetails(
+  filter: ListAppointmentsFilter,
+  deps: { appointments: AppointmentRepository },
+): Promise<AppointmentWithDetails[]> {
+  if (filter.patientId) {
+    return deps.appointments.listByPatientIdDetailed(filter.patientId, filter.status);
+  }
+
+  return deps.appointments.listAllDetailed(filter.status);
 }

@@ -19,11 +19,14 @@ beforeAll(async () => {
   await ensureTestDatabase(TEST_DATABASE_URL);
   db = createDbClient(TEST_DATABASE_URL);
   repo = new DrizzlePatientRepository(db);
-  doctorId = (await ensureTestDoctor(db)).id;
 });
 
 beforeEach(async () => {
   await truncateAll(db);
+  // truncateAll wipes `doctor` too (it now has a live FK to `user`), so the
+  // fixture doctor must be re-seeded — and re-captured — every time, not
+  // just once in beforeAll.
+  doctorId = (await ensureTestDoctor(db)).id;
 });
 
 function samplePatient(userId: string) {
@@ -42,10 +45,14 @@ function samplePatient(userId: string) {
     currentMedications: null,
     familyMedicalHistory: null,
     pastMedicalHistory: null,
+    identificationType: "Passport",
+    identificationNumber: "X1234567",
     identificationDocumentPath: "some-file.pdf",
+    bloodType: null,
     consentTreatment: true,
     consentDisclosure: true,
     consentPrivacy: true,
+    deletedAt: null,
   };
 }
 
@@ -94,5 +101,27 @@ describe("DrizzlePatientRepository", () => {
     await db.delete(user).where(eq(user.id, testUser.id));
 
     expect(await repo.findById(created.id)).toBeNull();
+  });
+
+  it("update() persists field changes", async () => {
+    const testUser = await insertTestUser(db);
+    const created = await repo.create(samplePatient(testUser.id));
+
+    const updated = await repo.update({ ...created, occupation: "Retired" });
+
+    expect(updated.occupation).toBe("Retired");
+    expect((await repo.findById(created.id))?.occupation).toBe("Retired");
+  });
+
+  it("softDelete() hides the patient from findByUserId but not findByUserIdIncludingDeleted", async () => {
+    const testUser = await insertTestUser(db);
+    const created = await repo.create(samplePatient(testUser.id));
+
+    await repo.softDelete(created.id);
+
+    expect(await repo.findByUserId(testUser.id)).toBeNull();
+    const stillFound = await repo.findByUserIdIncludingDeleted(testUser.id);
+    expect(stillFound?.id).toBe(created.id);
+    expect(stillFound?.deletedAt).not.toBeNull();
   });
 });

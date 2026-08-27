@@ -1043,6 +1043,20 @@ Add project-specific decisions below.
 | 23 | `hono/secure-headers` added globally | Standard security headers (HSTS, X-Content-Type-Options, X-Frame-Options, etc.) at near-zero cost; verified live (curl against a running instance) | Hand-roll individual header middleware; skip since this is "just an API" | Accepted |
 | 24 | Rate limiting via Better Auth's built-in `rateLimit.customRules` on the two OTP endpoints (3/min send, 5/min verify) rather than a custom middleware or Redis-backed limiter | Built into the auth library already in use; in-memory storage is fine at this app's scale (single clinic); defaults to production-only so it never interferes with dev/tests. Verified live: 4th rapid request in a minute returns 429. | Custom Hono middleware; Redis-backed limiter (explicitly out of scope per Section 0 unless needed) | Accepted |
 | 25 | `apps/api/src/email.ts`'s console-fallback now throws instead of logging when `NODE_ENV === "production"` | `pnpm audit`-adjacent manual review found that a misconfigured production deploy (missing `RESEND_API_KEY`) would otherwise silently leak OTP codes and appointment details into server logs — a real credential-leakage path. Verified live: in a production-mode run, the OTP never appeared in logs, only a generic error (Better Auth sends OTP emails as an unawaited background task, so the client still gets `{success:true}` even though the send failed — a pre-existing Better Auth behavior, not something this fix changes, and worth knowing operationally). | Leave the fallback unconditional (the pre-existing behavior); require the key via env validation instead (rejected — `RESEND_API_KEY` is legitimately optional in dev/test) | Accepted |
+| 26 | GitHub Actions CI (`.github/workflows/ci.yml`) uses a Postgres service container on host port 5433 (matching local dev/`docker-compose.yml`) rather than the default 5432 | No extra env wiring needed for the test step — the same `DATABASE_URL`/`TEST_DATABASE_URL` defaults already used locally just work in CI | Remap to 5432 in CI only (adds config drift between local and CI for no benefit) | Accepted |
+| 27 | CI verification done via a real push to `github.com/serocode/medicore` and watching the actual GitHub Actions run, not just `act` (local runner simulation) | `act` failed on an environment-only artifact — its Postgres service container couldn't bind host port 5433 because the real dev Postgres container was already using it on this machine. That's not a defect in the workflow; confirmed by the real GitHub-hosted run going fully green (all steps, ~1m26s) with no such conflict. Per Section 26's own rule, a locally-simulated or syntax-only check doesn't count as verification — only the real run does. | Fix the local port clash and re-run `act` until green (unnecessary extra work once the real run already passed) | Accepted |
+| 28 | Restyled the frontend to follow the CarePulse reference project's (github.com/AbhishekNavgan95/CarePulse) UI concept and flow — two-column `AuthLayout` shell for form pages, sectioned registration form, status pill badges, admin stat cards, a full appointments table, and modal-driven confirm/cancel — while keeping our current light color palette (not CarePulse's dark theme) and our real Better Auth `role`-based admin gating (CarePulse gates `/admin` with a passkey in `localStorage`, a materially weaker model than what Phase 4/8 already built here) | User asked to follow CarePulse's concept and flow specifically; layout/IA is reusable, but downgrading auth to a client-side passkey would undo real security work for no benefit | Full visual parity including dark theme and passkey gating (rejected — see reasoning above); leave the frontend as-is (rejected — user explicitly asked for this) | Accepted |
+| 29 | Added `identificationType`/`identificationNumber` (both `text().notNull()`) to `patient`, matching CarePulse's intake form; migration backfills pre-existing rows with `'Unknown'`/`'UNKNOWN'` before adding the `NOT NULL` constraint | CarePulse captures a typed ID record, not just the uploaded document; two dev-only patient rows already existed in the local database from earlier manual testing, so a bare `NOT NULL` migration (drizzle-kit's default output) would have failed on apply | Drop the two existing dev rows instead of backfilling (rejected — destroys data unnecessarily when a backfill is just as easy and is the standard non-destructive pattern for this exact situation) | Accepted |
+| 30 | Added `AppointmentWithDetails` (adds `doctorName`/`doctorImageUrl`/`patientName` via `leftJoin`s) and `listAllDetailed`/`listByPatientIdDetailed` alongside the existing `Appointment`/`listAll`/`listByPatientId`, rather than changing the base `Appointment` shape everywhere | The admin table, the booking-success page, and patient dashboard cards all need doctor/patient *names*, not raw UUIDs; keeping this as an additive parallel type avoids touching every existing call site (confirm/cancel/booking) that only needs the base shape | Extend `Appointment` itself with nullable name fields (rejected — forces every repository method to join, even where the names aren't used) | Accepted |
+| 31 | `lucide-react` added as a new frontend dependency | CarePulse's "icon-led inputs" convention (leading icons in text/select fields, status/stat-card icons) is pervasive; a small tree-shakeable icon set matches it without hand-authoring SVGs for every icon | Inline hand-drawn SVGs (rejected — much more code for the same result); no icons (rejected — user asked to follow CarePulse's concept, and icons are a named part of that) | Accepted |
+| 32 | `Modal.tsx`'s native `<dialog>` listens for Escape via `dialog.addEventListener("cancel", onClose)` in a `useEffect`, not via an `onClose`/`onCancel` JSX prop | React 18 *does* wire an `onClose` JSX prop through to the dialog's native `close` event — and React 18 StrictMode's dev-only double-invoked effect cleanup calls `dialog.close()` right after mount, which fires that same `close` event and immediately closed the modal in dev, before any real user interaction. `cancel` only fires on a genuine Escape press, never from a programmatic `.close()` call, so listening for `cancel` specifically sidesteps the whole StrictMode interaction. Found via a Playwright script that polls `document.querySelectorAll("dialog")` on a timer after clicking the trigger button — the modal was mounting, opening, and unmounting within ~100ms, dev-only. | `onCancel`/`onClose` JSX props on `<dialog>` (the bug); disabling StrictMode (rejected — StrictMode is a real safety net project-wide, not worth losing for one component) | Accepted |
+| 33 | Patient account deletion is a soft delete (`patient.deletedAt`), not a row removal | Appropriate for a healthcare app — appointment history needs to survive account closure for record-keeping. `findByUserId` (used everywhere for "does this user have an active profile") filters out soft-deleted rows; `findById` doesn't (used by notification/document-access lookups that should keep working against historical, possibly-deleted patients). Deleting also cancels the patient's own pending/scheduled appointments via the existing domain `cancelAppointment` transition. | Hard delete (rejected — destroys medical record history for no benefit); a `status` enum instead of a timestamp (rejected — a timestamp records *when*, which a boolean/enum would lose) | Accepted |
+| 34 | Re-registering after a soft delete reactivates the existing row (`patients.update` clearing `deletedAt`) instead of inserting a new one | `patient.userId` has a unique constraint; a soft-deleted row still physically occupies that constraint, so a second `create()` for the same user would throw a raw DB error. `registerPatient` now looks up *any* row for the user (including deleted) and updates it in place if found-and-deleted, throws the existing `PatientAlreadyRegisteredError` if found-and-active, or creates fresh if nothing exists — same three-way branch either way, reusing the `update()` method added for profile editing. | Drop the unique constraint and allow multiple historical rows per user (rejected — more complexity for a case this handles cleanly); refuse re-registration entirely after delete (rejected — soft delete without a way back defeats the point) | Accepted |
+| 35 | `PatientProfileForm.tsx` re-applies `fullName` (from the Better Auth session) and `primaryPhysicianId` (from `defaultValues`) via `setValue()` in a `useEffect`, instead of relying solely on react-hook-form's `values`/`defaultValues` config | Both fields depend on data that loads asynchronously *after* the form's own defaults are set — the session for `fullName`, the doctor list's `<option>`s for `primaryPhysicianId`. `register()`-based fields are uncontrolled: RHF sets the DOM value once when the field's default changes, and a native `<select>` can't reflect a value with no matching `<option>` in the DOM yet — it silently falls back to the placeholder and never re-syncs once the option shows up. Caught by screenshot during manual verification of the new `/account` edit page (Dr. Alyana Cruz was the saved physician; the dropdown showed "Select a physician" instead). | Fetch doctors/session before first render (rejected — adds loading-waterfall complexity for two fields); switch the select to a controlled component (rejected — bigger change, `setValue` is the minimal fix for RHF's own documented uncontrolled-field pattern) | Accepted |
+| 36 | Doctor/nurse staff accounts bootstrap via `DOCTOR_EMAILS`/`NURSE_EMAILS` env allowlists (same pattern as `ADMIN_EMAILS`), with a minimal professional profile row auto-provisioned in `auth.ts`'s `databaseHooks.user.create.after` hook on first sign-in | No self-service staff registration form exists in this phase; allowlist bootstrap is the established pattern (Decision — admin already works this way) and keeps staff account creation an admin-controlled, out-of-band decision rather than open signup, appropriate for clinical staff access | An admin-provisioned "create staff account" UI (real deferred follow-up — noted as out of scope for this phase in the plan) | Accepted |
+| 37 | `doctor` extended in place (added `userId`, `title`, `department`, `licenseNumber`, `contactPhone`, `bio`, `yearsOfExperience`, all nullable) rather than replaced by a unified `staffMember` table; `nurse` added as a separate new table with a parallel but distinct shape | `doctor` is already referenced by `appointment.doctorId` and `patient.primaryPhysicianId` — extending it in place preserves those FKs and all existing booking-flow code untouched. Nurses have no equivalent "picklist" role, so a clean new table was simpler than retrofitting a discriminated-union table. `Encounter`/`VitalSign` reference the recording staff member by `recordedByUserId` + a `recordedByName`/`recordedByRole` captured at write time (mirrors `AppointmentWithDetails`'s denormalization, Decision #30) rather than joining `doctor`/`nurse` at read time — clinically correct too, since a signed note should keep showing who signed it then. | Unify doctor+nurse into one `staffMember` table with a role discriminator (rejected — bigger migration, touches every existing doctor-repository/route/frontend usage for no benefit this phase) | Accepted |
+| 38 | Clinical entries (`encounter`, `vital_sign`) are append-only — no update/delete route exists for either | "Don't silently overwrite historical clinical information" (the user's own requirement) is satisfied for free this way: a correction is just a new encounter, not an edit to an old one. Avoids needing a full audit-log table in this phase to prove nothing was overwritten. | Allow edits with a tracked audit trail (deferred — real future work if corrections turn out to be needed) | Accepted |
+| 39 | `truncateAll` (DAL test helper) now explicitly truncates `doctor`/`nurse`/`encounter`/`vital_sign` too, and every test file re-fetches `ensureTestDoctor` in `beforeEach` (not just once in `beforeAll`) | Adding `doctor.userId → user.id` (nullable FK, for staff-linked doctors) meant Postgres's `TRUNCATE ... CASCADE` started wiping the whole `doctor` table as collateral whenever `user` was truncated — cascade follows the FK's existence in the schema, not whether any row has a non-null value. That silently deleted the fixture doctor `ensureTestDoctor` used to seed only once per file, breaking `primaryPhysicianId`/`doctorId` FKs in every test after the first `truncateAll` call. Found by running the full suite after the schema change and seeing FK-violation failures with a *different* stale doctor UUID each run. | Exclude `doctor` from the FK relationship (rejected — staff-linked doctors need it); leave truncateAll not covering it and accept the cascade silently (rejected — that's the bug) | Accepted |
 
 ---
 
@@ -1052,7 +1066,7 @@ Add project-specific decisions below.
 |---|---|---|---|---|---|
 | TD-001 | ~~`packages/domain` and `packages/application` don't exist yet~~ | Created in Phase 5 with the Appointment/Patient business logic that justified them | — | — | Resolved |
 | TD-002 | ~~Role enforcement had no automated regression tests~~ | `appointments.test.ts` now covers admin-only confirm/cancel/stats (403 for a patient) and cross-user isolation (a patient never sees another patient's appointments); `uploads.test.ts` covers owner/other-patient/admin on document access | — | — | Resolved |
-| TD-003 | No CI pipeline (GitHub Actions) yet | Phase 10, explicitly deferred | Medium — no automated gate on typecheck/lint/test before merge | Add `.github/workflows` in Phase 10 | Open |
+| TD-003 | ~~No CI pipeline (GitHub Actions) yet~~ | `.github/workflows/ci.yml` added (install/format-check/lint/typecheck/build/test/docker-build, Postgres service container) and verified with a real green run on GitHub Actions after pushing to `github.com/serocode/medicore` (Decisions #26/#27) | — | — | Resolved |
 | TD-004 | No README/deployment docs yet | Phase 11, explicitly deferred | Low — project is pre-collaboration | Write in Phase 11 | Open |
 | TD-005 | ~~Frontend not verified in an actual browser~~ | Verified this session via a headless-Chromium script (playwright-core driving the system's installed Chrome, since no browser automation tooling was pre-installed) | — | — | Resolved |
 | TD-006 | Local dev Postgres mapped to host port 5433 instead of the standard 5432 | Port 5432 was already bound by an unrelated container on the machine used for setup | Low — internal container-to-container traffic still uses 5432 | Revert to 5432 in `docker-compose.yml`/`.env.example` if that conflict doesn't apply on other machines | Open |
@@ -1157,16 +1171,24 @@ A setup item is complete when:
 ### Current Phase
 
 ```text
-Phase 8 — Security Hardening (complete)
+Phase 10 — Docker & CI/CD (complete), plus a post-Phase-10 UI/UX pass
+(CarePulse concept/flow adoption — not one of the original 13 roadmap
+phases, done at explicit user request)
 ```
 
 ### Current Task
 
 ```text
-Phases 5, 6, 7, 8, and 9 are all done. Phase 10 (Docker & CI/CD — a real
-GitHub Actions pipeline running the typecheck/lint/build/test suite this
-project already has) is the only unstarted phase left on the roadmap before
-Phase 11 (Documentation) and Phase 12 (Production Launch Verification).
+Phases 5-10 are all done, the CarePulse UI/UX pass is done, patient account
+CRUD (update/soft-delete) + registration-flow guards are done, and Phase 1
+of the clinical documentation platform (doctor/nurse roles, encounters,
+vitals, patient clinical record, role dashboards — see the plan file this
+was built from for the full phased roadmap and what's explicitly deferred:
+patient search, trend charts, a separate Medications/Diagnosis/Allergy
+schema, an AuditLog table, admin-provisioned staff management UI) is done.
+Phase 11 (Documentation) and Phase 12 (Production Launch Verification)
+remain on the original roadmap; later clinical-platform phases are a
+separate, not-yet-scheduled track.
 ```
 
 ### Completed
@@ -1240,6 +1262,64 @@ Phase 11 (Documentation) and Phase 12 (Production Launch Verification).
   any workspace.
 - Secret rotation procedures documented directly in `.env.example` next to
   each secret (`BETTER_AUTH_SECRET`, `RESEND_API_KEY`, `DATABASE_URL`).
+- Phase 10 Docker fix: `apps/api/Dockerfile` was stale from before Phase 5
+  added `packages/domain`/`packages/application` — a real `docker build` was
+  failing (`esbuild: Could not resolve "@healthcare/application"`). Fixed by
+  adding the missing `COPY` steps for both packages in both the builder and
+  runner stages; re-verified with a successful build and a live smoke test
+  (`/health` and `/ready` both 200) against the real dev Postgres container.
+- Phase 10 CI: `.github/workflows/ci.yml` added (Postgres service container,
+  install/format-check/lint/typecheck/build/test/docker-build). While
+  validating it, `pnpm format:check` (never run standalone before, only
+  `lint`) found 16 formatting violations `biome lint` hadn't caught — fixed
+  with `pnpm format`, full suite re-verified clean after.
+- Phase 10 verification: pushed the first commit to `github.com/serocode/
+  medicore` and watched a real GitHub Actions run go fully green (all steps,
+  ~1m26s) — see Decisions #26/#27 for why a local `act` run isn't what
+  verified this (it hit a local port-conflict artifact, not a workflow bug).
+- Post-Phase-10 CarePulse UI/UX pass (Decisions #28-#32): restyled
+  HomePage/SignInPage/RegisterPatientPage/BookAppointmentPage to a shared
+  two-column `AuthLayout`; added a new `/book/success` page; rebuilt
+  AdminDashboardPage with 3 stat cards, a full appointments table, and
+  modal-driven confirm/cancel (`AppointmentActionModal` + a custom
+  `Modal` built on native `<dialog>`); added `identificationType`/
+  `identificationNumber` to the patient intake form and schema (migration
+  0002, with a backfill for the 2 pre-existing dev rows); added an
+  `AppointmentWithDetails` enriched listing so the UI shows doctor/patient
+  names instead of raw UUIDs; added `lucide-react` for CarePulse's
+  icon-led-input convention. Kept the current light theme and the real
+  Better Auth role-based admin gating rather than CarePulse's dark theme and
+  client-side passkey.
+- Patient account CRUD (Decisions #33-35): added `PATCH /api/patients/me`
+  (full profile edit, ID document optional on edit) and `DELETE /api/
+  patients/me` (soft delete — cancels active appointments, keeps history).
+  Two new route guards (`RequirePatientProfile`, `RedirectIfRegistered`)
+  keep the flow linear: unregistered patients get funneled to `/register`
+  from `/book`/`/dashboard`/the new `/account` page instead of hitting a
+  raw 404; registered patients get redirected away from `/register` instead
+  of re-submitting it, and the nav bar hides the "Register" link once
+  they're registered. Re-registering after a delete reactivates the same
+  row rather than 409ing, handling the unique-userId-constraint edge case
+  soft-delete introduces.
+- Clinical documentation platform, Phase 1 (Decisions #36-39): doctor/nurse
+  roles bootstrap via `DOCTOR_EMAILS`/`NURSE_EMAILS` allowlists with
+  auto-provisioned profiles; new `nurse`/`encounter`/`vital_sign` tables and
+  an extended `doctor` table (professional profile fields, optional
+  `userId` link); a `recordEncounter` command that creates an encounter
+  and, if vitals were provided, a linked `vital_sign` row with server-side
+  BMI calculation (`packages/domain/src/vitals.ts`), and rejects a
+  nurse-submitted diagnosis with a 403 (real backend RBAC, not just a
+  hidden form field); staff-only API surface (`requireStaff` middleware) —
+  `GET/PATCH /api/staff/me`, `GET /api/patients`, `GET /api/patients/
+  :patientId`, `POST/GET /api/patients/:patientId/encounters`, `GET .../
+  vitals`; frontend: role-aware `EncounterForm` (SOAP fields for doctors,
+  nursing fields for nurses, one shared `VitalsForm`), a tabbed
+  `PatientClinicalRecordPage` (Overview/Vitals/Timeline), `EncounterTimeline`
+  and `VitalsHistoryTable` components, role-aware `StaffDashboardPage` and
+  `StaffProfileForm`, and a new `RequireStaff` route guard. Explicitly
+  deferred to later phases: patient search, trend charts (a table ships
+  first), separate Medications/Diagnosis/Allergy tables, an AuditLog table,
+  and admin-provisioned staff management UI.
 ```
 
 ### Blockers
@@ -1251,12 +1331,13 @@ None.
 ### Next Action
 
 ```text
-Phase 10 (Docker & CI/CD): add a GitHub Actions workflow that installs via
-the lockfile, runs typecheck/lint/build/test (spinning up Postgres as a
-service container for the DAL/API integration tests), and builds the
-Docker image. Push and confirm at least one full green run on actual
-GitHub Actions — a YAML file being syntactically valid doesn't count
-(Section 26's own rule).
+Phase 11 (Documentation): a README covering setup (docker compose up -d
+postgres, pnpm install, pnpm dev), the env vars in .env.example (including
+that ADMIN_EMAILS must be set locally to test the admin flow, and that
+RESEND_API_KEY being set routes OTP/notification emails through real Resend
+instead of the dev console-fallback), and the architecture/testing
+conventions already documented in this file. Then Phase 12 (Production
+Launch Verification).
 ```
 
 ### Last Verified
@@ -1306,6 +1387,119 @@ after every change below — nothing was left unverified:
   still received `{success:true}` (Better Auth sends the email as an
   unawaited background task), which is why this is tracked as TD-010
   rather than treated as fully resolved.
+
+Phase 10 (this update): Dockerfile fix verified via a successful `docker
+build` plus a live smoke test against the real dev Postgres container; CI
+workflow verified via an actual green run on GitHub Actions after pushing
+to `github.com/serocode/medicore` (run link in Decision #27's reasoning) —
+not just YAML-syntax validation, per Section 26's own rule.
+
+Post-Phase-10 CarePulse UI/UX pass (this update): `pnpm turbo typecheck
+lint build test` passes across all 6 workspaces (44 tests). Beyond that,
+specifically browser-verified end-to-end with a Playwright script driving
+the real dev servers (Postgres + api + web, `RESEND_API_KEY` cleared and
+`ADMIN_EMAILS` set for the run so OTPs stayed in the console-fallback path
+instead of hitting real Resend) — not just implemented:
+- Home → sign-in (OTP) → registration (all 4 sections, drag-and-drop file
+  upload with image preview, the new ID-type/number fields) → booking (with
+  the new Notes field) → the new booking-success page (correct doctor name
+  and date) → patient dashboard (doctor name/avatar now shown) — zero
+  console errors at any step.
+- Admin: signed in as a second (admin) user, verified the 3 stat cards and
+  the full appointments table (patient/doctor names now shown instead of
+  raw UUIDs), opened the schedule modal, and confirmed a genuinely free
+  slot — the modal closed and the row updated to "Scheduled" with an
+  updated stat count.
+- Found and fixed a real bug during this verification, not just a happy
+  path: the admin confirm/cancel modal was silently closing itself ~100ms
+  after opening in dev, every time (see Decision #32) — caught because a
+  Playwright script polling `document.querySelectorAll("dialog")` on a
+  timer showed the dialog mounting then vanishing, which a single
+  screenshot taken after a fixed delay would have missed entirely.
+- Also exercised the real double-booking rejection (colliding scheduled
+  time → 409, error shown inline, modal stays open with the user's input
+  intact) — confirms error paths render correctly too, not just the happy
+  path.
+
+Also this session: two live bugs the user found through their own manual
+testing were fixed and re-verified — admin sign-in wasn't routing to
+`/admin` (SignInPage always navigated to `/dashboard` regardless of role;
+now checks the sign-in response's role), and the admin confirm/cancel
+modal was rendering top-left instead of centered (Tailwind's Preflight
+reset zeroes `margin` on every element, silently overriding the browser's
+built-in `dialog:modal { margin: auto }` centering rule — fixed with an
+explicit `m-auto` class). Both confirmed via a Playwright script checking
+the post-sign-in URL and the modal's bounding-box center against the
+viewport center.
+
+Patient account CRUD + registration-flow guards (this update): `pnpm turbo
+typecheck lint build test` passes across all 6 workspaces (50 tests, 6 new:
+2 DAL for update/softDelete, 3 API for PATCH/DELETE /me, 1 API for
+appointment-cancel-on-delete). Beyond that, a Playwright script drove the
+full flow end-to-end against the real dev servers (same console-fallback
+OTP setup as the CarePulse pass) and specifically confirmed:
+- An unregistered patient hitting `/book` directly lands on `/register`
+  instead of a raw 404.
+- After registering, `/register` itself redirects to `/dashboard`, and the
+  nav bar shows "Account" instead of "Register".
+- Editing a field via `/account` and reloading shows the persisted change
+  (not just an optimistic UI update).
+- Deleting the account redirects home, and `/dashboard` now redirects to
+  `/register` again.
+- Re-registering with the same email succeeds (201, not 409) and reuses
+  the same patient ID — confirms the reactivation path (Decision #34), not
+  just the constraint-avoidance logic in isolation.
+- Found and fixed a real bug during this verification: the "Primary
+  physician" field on the edit form showed the placeholder instead of the
+  saved doctor, caught by actually reading the screenshot rather than only
+  checking HTTP status codes — an uncontrolled `<select>` timing issue
+  (Decision #35), not a data problem (the correct value was being sent on
+  submit the whole time, so a screenshot was necessary to catch it — a
+  status-code-only check would have passed).
+
+Clinical documentation platform, Phase 1 (this update): `pnpm turbo
+typecheck lint build test` passes across all 6 workspaces (69 tests total —
+28 DAL, 35 API — up from 50; 19 new: 2 domain BMI tests, 9 new DAL
+repository tests across nurse/encounter/vital-sign, 10 new API tests across
+staff.test.ts and encounters.test.ts). Beyond that, browser-verified
+end-to-end with Playwright against the real dev servers (same
+console-fallback-OTP setup, `DOCTOR_EMAILS`/`NURSE_EMAILS` bootstrapped
+alongside the existing `ADMIN_EMAILS`):
+- Registered a fresh patient, then signed in as a bootstrapped doctor —
+  correctly landed on `/staff/dashboard` (not `/dashboard`), which listed
+  all active patients with allergy alerts flagged in red.
+- Opened the patient's clinical record — header showed computed age,
+  DOB, emergency contact, and a red "Allergies: Penicillin" alert banner;
+  Overview/Vitals/Timeline tabs all rendered correctly.
+- Recorded a full SOAP-format encounter as the doctor (chief complaint,
+  subjective, objective, assessment, diagnosis, plan) with vitals (BP, HR,
+  weight, height) in the same submission — the timeline immediately showed
+  it with a "Consultation" badge, the doctor's identity, and only the
+  fields that were actually filled in (matches the "don't force irrelevant
+  fields" requirement).
+- Signed in as a bootstrapped nurse, opened the same patient — confirmed
+  the diagnosis field is genuinely absent from the nursing-mode form (not
+  just hidden via CSS — checked the DOM directly), recorded a vitals-only
+  encounter, and confirmed it appeared on the timeline with a "Vitals
+  Only" badge.
+- Vitals history table showed both entries with the doctor's BMI correctly
+  computed server-side (22.8 from 62kg/165cm) and the nurse's entry showing
+  "—" for the fields she didn't record (no weight/height given).
+- Confirmed the staff profile page loads and is editable for a nurse.
+- Confirmed a patient account is redirected away from a staff-only route
+  (`/patients/:id`) back to `/dashboard` — the route guard, not just the
+  API 403 (already covered by `encounters.test.ts`'s dedicated test),
+  actually fires in the browser.
+- Found and fixed a real regression during this pass, not caught by
+  typecheck/lint/build: adding `doctor.userId → user.id` broke every
+  existing DAL/API test that used the shared fixture doctor, because
+  Postgres's `TRUNCATE ... CASCADE` started wiping `doctor` as collateral
+  whenever `user` was truncated between tests (Decision #39). Root-caused
+  by noticing the FK-violation error named a *different* stale doctor UUID
+  on each run, fixed by re-seeding the fixture doctor in every test file's
+  `beforeEach` instead of once in `beforeAll`, then re-ran the full suite
+  to confirm all 6 previously-passing test files were clean again before
+  adding the new clinical-feature tests on top.
 ```
 
 ---

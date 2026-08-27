@@ -1,10 +1,12 @@
 import { Link, useNavigate } from "react-router-dom";
 import { authClient, useSession } from "../lib/auth-client";
+import { usePatientProfile } from "../lib/use-patient-profile";
 
 export function NavBar() {
   const { data: session } = useSession();
   const navigate = useNavigate();
   const role = (session?.user as { role?: string } | undefined)?.role;
+  const { data: patient, isLoading: isProfileLoading } = usePatientProfile();
 
   async function handleSignOut() {
     await authClient.signOut();
@@ -21,10 +23,19 @@ export function NavBar() {
           <Link to="/admin" className="text-slate-600 hover:text-slate-900">
             Admin dashboard
           </Link>
-        ) : (
+        ) : role === "doctor" || role === "nurse" ? (
           <>
-            <Link to="/register" className="text-slate-600 hover:text-slate-900">
-              Register
+            <Link to="/staff/dashboard" className="text-slate-600 hover:text-slate-900">
+              Dashboard
+            </Link>
+            <Link to="/staff/profile" className="text-slate-600 hover:text-slate-900">
+              My profile
+            </Link>
+          </>
+        ) : isProfileLoading ? null : patient ? (
+          <>
+            <Link to="/account" className="text-slate-600 hover:text-slate-900">
+              Account
             </Link>
             <Link to="/book" className="text-slate-600 hover:text-slate-900">
               Book appointment
@@ -33,6 +44,10 @@ export function NavBar() {
               My appointments
             </Link>
           </>
+        ) : (
+          <Link to="/register" className="text-slate-600 hover:text-slate-900">
+            Register
+          </Link>
         )}
         {session && (
           <button

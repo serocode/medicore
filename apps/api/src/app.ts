@@ -8,7 +8,9 @@ import { env } from "./env.js";
 import { mapErrorToResponse } from "./lib/http-errors.js";
 import { appointmentsRoute } from "./routes/appointments.js";
 import { doctorsRoute } from "./routes/doctors.js";
+import { encountersRoute } from "./routes/encounters.js";
 import { patientsRoute } from "./routes/patients.js";
+import { staffRoute } from "./routes/staff.js";
 import { uploadsRoute } from "./routes/uploads.js";
 
 export const app = new Hono();
@@ -38,8 +40,10 @@ app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
 app.route("/api/doctors", doctorsRoute);
 app.route("/api/patients", patientsRoute);
+app.route("/api/patients", encountersRoute);
 app.route("/api/appointments", appointmentsRoute);
 app.route("/api/uploads", uploadsRoute);
+app.route("/api/staff", staffRoute);
 
 app.onError((error, c) => mapErrorToResponse(error, c));
 

@@ -47,12 +47,19 @@ export async function ensureTestDatabase(testDatabaseUrl: string): Promise<void>
 }
 
 /**
- * Wipes every table a test could have written to, except `doctor` — doctors
- * are seeded once via `ensureTestDoctor` and treated as fixture data.
+ * Wipes every table a test could have written to. `doctor` now has a
+ * nullable FK to `user` (staff accounts), so it — along with `nurse`,
+ * `encounter`, and `vital_sign` — has to be included here too: Postgres's
+ * `... CASCADE` truncates any table with a live FK to a truncated one based
+ * on the schema, not on whether any row actually has a non-null value, so
+ * `doctor` would get silently wiped as collateral either way. Because of
+ * this, the fixture doctor `ensureTestDoctor` seeds does NOT survive across
+ * calls to this function — callers must re-fetch it (call `ensureTestDoctor`
+ * again) after every `truncateAll`, not just once in `beforeAll`.
  */
 export async function truncateAll(db: Db): Promise<void> {
   await db.execute(
-    sql`truncate table "appointment", "patient", "session", "account", "verification", "user" restart identity cascade`,
+    sql`truncate table "vital_sign", "encounter", "appointment", "patient", "nurse", "doctor", "session", "account", "verification", "user" restart identity cascade`,
   );
 }
 

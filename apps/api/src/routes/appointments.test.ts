@@ -1,5 +1,5 @@
 import { ensureTestDoctor, truncateAll } from "@healthcare/dal/src/test-utils/test-db.js";
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { app } from "../app.js";
 import { db } from "../db.js";
 import { signInAsAdmin, signInAsPatient } from "../test-utils/api-test-client.js";
@@ -18,12 +18,11 @@ interface AppointmentsListResponse {
 
 let doctorId: string;
 
-beforeAll(async () => {
-  doctorId = (await ensureTestDoctor(db)).id;
-});
-
 beforeEach(async () => {
   await truncateAll(db);
+  // truncateAll wipes `doctor` too (it now has a live FK to `user`), so the
+  // fixture doctor must be re-seeded — and re-captured — every time.
+  doctorId = (await ensureTestDoctor(db)).id;
 });
 
 async function bookAppointment(cookie: string, overrides: Record<string, unknown> = {}) {
@@ -163,5 +162,25 @@ describe("GET /api/appointments cross-user isolation", () => {
     const res = await app.request("/api/appointments", { headers: { Cookie: cookieB } });
     const { appointments } = await readJson<AppointmentsListResponse>(res);
     expect(appointments).toHaveLength(0);
+  });
+});
+
+describe("account deletion cancels active appointments", () => {
+  it("cancels a pending appointment when the owning patient deletes their account", async () => {
+    const cookie = await signInAsPatient(app, "delete-cascade@example.com");
+    await registerTestPatient(app, { cookie, doctorId });
+    const appointment = await bookedAppointment(cookie);
+    expect(appointment.status).toBe("pending");
+
+    await app.request("/api/patients/me", { method: "DELETE", headers: { Cookie: cookie } });
+
+    const adminCookie = await signInAsAdmin(app);
+    const res = await app.request("/api/appointments?status=cancelled", {
+      headers: { Cookie: adminCookie },
+    });
+    const { appointments } = await readJson<{ appointments: { id: string; status: string }[] }>(
+      res,
+    );
+    expect(appointments.some((a) => a.id === appointment.id)).toBe(true);
   });
 });

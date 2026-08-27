@@ -1,8 +1,16 @@
-import type { Appointment, AppointmentRepository, NewAppointment } from "@healthcare/application";
+import type {
+  Appointment,
+  AppointmentRepository,
+  AppointmentWithDetails,
+  NewAppointment,
+} from "@healthcare/application";
 import type { AppointmentStatus } from "@healthcare/domain";
 import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "../client.js";
 import { appointment } from "../schema/appointment.js";
+import { user } from "../schema/auth.js";
+import { doctor } from "../schema/doctor.js";
+import { patient } from "../schema/patient.js";
 
 function toAppointment(row: typeof appointment.$inferSelect): Appointment {
   return {
@@ -15,6 +23,52 @@ function toAppointment(row: typeof appointment.$inferSelect): Appointment {
     status: row.status,
     cancellationReason: row.cancellationReason,
     notes: row.notes,
+  };
+}
+
+const detailedSelection = {
+  id: appointment.id,
+  patientId: appointment.patientId,
+  doctorId: appointment.doctorId,
+  reason: appointment.reason,
+  preferredSchedule: appointment.preferredSchedule,
+  scheduledAt: appointment.scheduledAt,
+  status: appointment.status,
+  cancellationReason: appointment.cancellationReason,
+  notes: appointment.notes,
+  doctorName: doctor.name,
+  doctorImageUrl: doctor.imageUrl,
+  patientName: user.name,
+};
+
+type DetailedRow = Awaited<ReturnType<typeof detailedQuery>>[number];
+
+function detailedQuery(db: Db) {
+  return db
+    .select(detailedSelection)
+    .from(appointment)
+    .leftJoin(doctor, eq(appointment.doctorId, doctor.id))
+    .leftJoin(patient, eq(appointment.patientId, patient.id))
+    .leftJoin(user, eq(patient.userId, user.id));
+}
+
+// doctorId/patientId are non-nullable FKs, so these left joins always match
+// in practice; the `?? ""` fallbacks only satisfy Drizzle's join-nullability
+// typing, they don't represent a real "missing doctor/patient" case.
+function toAppointmentWithDetails(row: DetailedRow): AppointmentWithDetails {
+  return {
+    id: row.id,
+    patientId: row.patientId,
+    doctorId: row.doctorId,
+    reason: row.reason,
+    preferredSchedule: row.preferredSchedule,
+    scheduledAt: row.scheduledAt,
+    status: row.status,
+    cancellationReason: row.cancellationReason,
+    notes: row.notes,
+    doctorName: row.doctorName ?? "",
+    doctorImageUrl: row.doctorImageUrl,
+    patientName: row.patientName ?? "",
   };
 }
 
@@ -61,6 +115,25 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
       ? await this.db.select().from(appointment).where(eq(appointment.status, status))
       : await this.db.select().from(appointment);
     return rows.map(toAppointment);
+  }
+
+  async listByPatientIdDetailed(
+    patientId: string,
+    status?: AppointmentStatus,
+  ): Promise<AppointmentWithDetails[]> {
+    const query = detailedQuery(this.db);
+    const rows = await query.where(
+      status
+        ? and(eq(appointment.patientId, patientId), eq(appointment.status, status))
+        : eq(appointment.patientId, patientId),
+    );
+    return rows.map(toAppointmentWithDetails);
+  }
+
+  async listAllDetailed(status?: AppointmentStatus): Promise<AppointmentWithDetails[]> {
+    const query = detailedQuery(this.db);
+    const rows = status ? await query.where(eq(appointment.status, status)) : await query;
+    return rows.map(toAppointmentWithDetails);
   }
 
   async findScheduledForDoctorAt(doctorId: string, scheduledAt: Date): Promise<Appointment | null> {

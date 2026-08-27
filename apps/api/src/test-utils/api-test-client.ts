@@ -1,6 +1,8 @@
 import type { Hono } from "hono";
 
 const TEST_ADMIN_EMAIL = "admin-test@example.com";
+const TEST_DOCTOR_EMAIL = "doctor-test@example.com";
+const TEST_NURSE_EMAIL = "nurse-test@example.com";
 
 /**
  * Drives the real email-OTP sign-in flow against the app in-process (no
@@ -60,4 +62,12 @@ export function signInAsPatient(app: Hono, email: string): Promise<string> {
 
 export function signInAsAdmin(app: Hono): Promise<string> {
   return signIn(app, TEST_ADMIN_EMAIL);
+}
+
+export function signInAsDoctor(app: Hono): Promise<string> {
+  return signIn(app, TEST_DOCTOR_EMAIL);
+}
+
+export function signInAsNurse(app: Hono): Promise<string> {
+  return signIn(app, TEST_NURSE_EMAIL);
 }

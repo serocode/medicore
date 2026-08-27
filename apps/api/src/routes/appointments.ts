@@ -5,7 +5,7 @@ import {
   confirmAppointment,
   getAppointmentStats,
   getPatientByUserId,
-  listAppointments,
+  listAppointmentsWithDetails,
 } from "@healthcare/application";
 import type { Appointment } from "@healthcare/application";
 import { Hono } from "hono";
@@ -41,6 +41,7 @@ const bookAppointmentSchema = z.object({
   doctorId: z.string().uuid(),
   reason: z.string().min(1),
   preferredSchedule: z.coerce.date(),
+  notes: z.string().optional(),
 });
 
 appointmentsRoute.post("/", requireAuth, async (c) => {
@@ -57,6 +58,7 @@ appointmentsRoute.post("/", requireAuth, async (c) => {
       doctorId: input.doctorId,
       reason: input.reason,
       preferredSchedule: input.preferredSchedule,
+      notes: input.notes,
     },
     { appointments: appointmentRepository },
   );
@@ -75,7 +77,7 @@ appointmentsRoute.get("/", requireAuth, async (c) => {
   const status = statusParam ? appointmentStatusSchema.parse(statusParam) : undefined;
 
   if (user.role === "admin") {
-    const appointments = await listAppointments(
+    const appointments = await listAppointmentsWithDetails(
       { status },
       { appointments: appointmentRepository },
     );
@@ -87,7 +89,7 @@ appointmentsRoute.get("/", requireAuth, async (c) => {
     return c.json({ appointments: [] });
   }
 
-  const appointments = await listAppointments(
+  const appointments = await listAppointmentsWithDetails(
     { patientId: patient.id, status },
     { appointments: appointmentRepository },
   );

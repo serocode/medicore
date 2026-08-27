@@ -1,13 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Avatar } from "../components/Avatar";
+import { StatusBadge } from "../components/StatusBadge";
 import { apiFetch } from "../lib/api-client";
 import type { Appointment } from "../lib/types";
-
-const STATUS_STYLES: Record<Appointment["status"], string> = {
-  pending: "bg-amber-100 text-amber-800",
-  scheduled: "bg-emerald-100 text-emerald-800",
-  cancelled: "bg-red-100 text-red-800",
-};
 
 export function PatientDashboardPage() {
   const [appointments, setAppointments] = useState<Appointment[] | null>(null);
@@ -35,7 +31,7 @@ export function PatientDashboardPage() {
 
       {appointments && appointments.length === 0 && (
         <p className="text-sm text-slate-600">
-          You have no appointments yet. Once you register, you can book one.
+          You have no appointments yet. Book your first one to get started.
         </p>
       )}
 
@@ -43,15 +39,17 @@ export function PatientDashboardPage() {
         {appointments?.map((appointment) => (
           <li
             key={appointment.id}
-            className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-4"
+            className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4"
           >
             <div className="flex items-center justify-between">
-              <span className="font-medium text-slate-900">{appointment.reason}</span>
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[appointment.status]}`}
-              >
-                {appointment.status}
-              </span>
+              <div className="flex items-center gap-3">
+                <Avatar name={appointment.doctorName} imageUrl={appointment.doctorImageUrl} />
+                <div>
+                  <p className="font-medium text-slate-900">{appointment.doctorName}</p>
+                  <p className="text-sm text-slate-500">{appointment.reason}</p>
+                </div>
+              </div>
+              <StatusBadge status={appointment.status} />
             </div>
             <p className="text-sm text-slate-600">
               {appointment.status === "scheduled" && appointment.scheduledAt
