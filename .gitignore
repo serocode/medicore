@@ -1,0 +1,26 @@
+node_modules/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+.env
+.env.local
+!.env.example
+
+# Locally stored uploads (patient ID documents) — never commit real data.
+# Includes the test-suite's scratch upload dir (UPLOAD_DIR in vitest.config.ts).
+apps/api/uploads/
+apps/api/uploads-test/
+uploads/
+uploads-test/
+
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+.DS_Store
+
+.vscode/*
+!.vscode/extensions.json
+.idea/

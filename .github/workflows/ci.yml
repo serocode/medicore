@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: healthcare
+          POSTGRES_PASSWORD: healthcare
+          POSTGRES_DB: healthcare
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U healthcare -d healthcare"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm turbo lint
+
+      - name: Typecheck
+        run: pnpm turbo typecheck
+
+      - name: Build
+        run: pnpm turbo build
+
+      # DAL/API integration tests connect to the `postgres` service above on
+      # localhost:5433 with the same default credentials used in local dev
+      # (see packages/dal/src/test-utils/test-db.ts) — no extra env wiring
+      # needed here. They create their own `healthcare_test` database and
+      # run migrations against it automatically.
+      - name: Test
+        run: pnpm turbo test
+
+      - name: Build Docker image
+        run: docker build -f apps/api/Dockerfile -t healthcare-api:${{ github.sha }} .
