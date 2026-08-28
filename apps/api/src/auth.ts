@@ -97,7 +97,7 @@ export const auth = betterAuth({
       // Stated rather than inherited (this equals Better Auth's default): the
       // sign-in page restores a pending code for exactly this long after
       // sending it, so the two have to agree. Keep OTP_VALIDITY_MS in
-      // apps/web/src/pages/SignInPage.tsx in step with any change here.
+      // apps/web/src/features/auth/pages/SignInPage.tsx in step with any change here.
       expiresIn: 300,
       async sendVerificationOTP({ email, otp }) {
         await sendOtpEmail(email, otp);
