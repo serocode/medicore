@@ -50,6 +50,13 @@
       "when": 1787843057087,
       "tag": "0006_glossy_umar",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787900947693,
+      "tag": "0007_lumpy_namor",
+      "breakpoints": true
     }
   ]
 }

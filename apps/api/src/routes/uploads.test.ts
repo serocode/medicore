@@ -70,6 +70,24 @@ describe("GET /api/uploads/:key", () => {
     expect(res.status).toBe(200);
   });
 
+  it("serves files with a cross-origin resource policy so <img> can render them", async () => {
+    // The web app runs on a different origin and renders these as <img>, which
+    // the browser blocks outright when CORP is `same-origin` — CORS does not
+    // apply to a no-cors image load. Every other route keeps the strict default.
+    const cookie = await signInAsPatient(app, "corp-owner@example.com");
+    const { patient } = await readJson<PatientResponse>(
+      await registerTestPatient(app, { cookie, doctorId }),
+    );
+
+    const res = await app.request(`/api/uploads/${patient.identificationDocumentPath}`, {
+      headers: { Cookie: cookie },
+    });
+    expect(res.headers.get("Cross-Origin-Resource-Policy")).toBe("cross-origin");
+
+    const elsewhere = await app.request("/api/account/me", { headers: { Cookie: cookie } });
+    expect(elsewhere.headers.get("Cross-Origin-Resource-Policy")).toBe("same-origin");
+  });
+
   it("rejects a path-traversal-shaped key", async () => {
     const adminCookie = await signInAsAdmin(app);
     const res = await app.request("/api/uploads/..%2f..%2fetc%2fpasswd", {

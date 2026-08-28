@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useSession } from "../lib/auth-client";
+import { clinicDateParts } from "../lib/timezone";
 import { Logo } from "./Logo";
 
 /**
@@ -39,7 +40,8 @@ export function Footer() {
             </>
           )}
           <p className="text-caption text-ink-subtle">
-            © {new Date().getFullYear()} Medicore. For use by registered patients and clinic staff.
+            © {clinicDateParts(new Date()).year} Medicore. For use by registered patients and clinic
+            staff.
           </p>
         </div>
       </div>

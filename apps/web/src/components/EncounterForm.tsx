@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type FieldValues, type UseFormRegister, useForm } from "react-hook-form";
 import { z } from "zod";
 import { apiFetch, applyApiErrorToForm } from "../lib/api-client";
@@ -70,6 +70,15 @@ function toNumberOrUndefined(value: string | undefined): number | undefined {
 
 export function EncounterForm({ patientId, role, onSuccess }: EncounterFormProps) {
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
+  // Held until the guard below has re-rendered as disabled. The parent
+  // navigates in onSuccess, and calling it from inside the submit handler ran
+  // while the form was still dirty — the unsaved-changes guard then blocked
+  // the redirect and a saved encounter looked like it had gone nowhere.
+  const [savedResult, setSavedResult] = useState<EncounterFormResult | null>(null);
+
+  useEffect(() => {
+    if (savedResult) onSuccess(savedResult);
+  }, [savedResult, onSuccess]);
   const {
     register,
     handleSubmit,
@@ -138,7 +147,7 @@ export function EncounterForm({ patientId, role, onSuccess }: EncounterFormProps
           vitals: hasVitals ? vitals : undefined,
         }),
       });
-      onSuccess(result);
+      setSavedResult(result);
     } catch (error) {
       applyApiErrorToForm(error, setError);
       setSubmitError(error instanceof Error ? error.message : "We couldn't save this encounter.");
@@ -149,7 +158,7 @@ export function EncounterForm({ patientId, role, onSuccess }: EncounterFormProps
     <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-8">
       {/* A part-written consultation note is the most expensive thing in this
           product to lose, so navigating away asks first. */}
-      <UnsavedChangesGuard when={isDirty && !isSubmitSuccessful} />
+      <UnsavedChangesGuard when={isDirty && !isSubmitSuccessful && !savedResult} />
 
       <RequiredLegend />
 

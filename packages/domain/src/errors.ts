@@ -40,3 +40,17 @@ export class VitalSignOutOfRangeError extends DomainError {
     super(`${label} of ${value} is outside the plausible range (${min}–${max})`);
   }
 }
+
+export class OutsideClinicHoursError extends DomainError {
+  constructor() {
+    super("The clinic is open Monday to Friday, 08:00–12:00 and 13:00–17:00 Philippine time");
+    this.name = "OutsideClinicHoursError";
+  }
+}
+
+export class AppointmentInPastError extends DomainError {
+  constructor() {
+    super("An appointment cannot be booked in the past");
+    this.name = "AppointmentInPastError";
+  }
+}

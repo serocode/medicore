@@ -100,8 +100,8 @@ const PATIENT_GUIDE: RoleGuide = {
       intro: "Booking creates a request, not a confirmed slot. The clinic decides the final time.",
       steps: [
         {
-          title: "Choose a physician and a time",
-          body: "Pick from the physicians the clinic lists, then the date and time you would prefer. You cannot request a time in the past.",
+          title: "Choose a physician, a date, and a time",
+          body: "Pick from the physicians the clinic lists, then a weekday and one of the half-hour slots offered. The clinic is open Monday to Friday, 8:00 AM to 12:00 PM and 1:00 PM to 5:00 PM Philippine time — weekends, the lunch break, and times that have already passed aren't offered.",
         },
         {
           title: "Say what the visit is about",
@@ -151,6 +151,11 @@ const PATIENT_GUIDE: RoleGuide = {
     "There is no messaging in Medicore. The clinic contacts you by email about appointment changes.",
   ],
   glossary: [
+    {
+      term: "Philippine time (GMT+8)",
+      definition:
+        "Every date and time in Medicore is the clinic's local time, wherever you are reading it. A slot shown as 10:00 AM is 10:00 AM in Manila.",
+    },
     {
       term: "Awaiting confirmation",
       definition: "You have requested this appointment and the clinic has not yet set a time.",
@@ -368,7 +373,7 @@ const ADMIN_GUIDE: RoleGuide = {
         },
         {
           title: "Schedule it",
-          body: "Choose Schedule and set the time the patient will actually be seen. Medicore refuses a slot that would double-book the same physician at the same moment.",
+          body: "Choose Schedule, then a weekday and one of the clinic's half-hour slots. Medicore refuses a slot outside opening hours, and one that would double-book the same physician at the same moment.",
         },
         {
           title: "Or cancel it",

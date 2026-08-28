@@ -10,7 +10,7 @@ function makeAppointment(overrides: Partial<Appointment> = {}): Appointment {
     patientId: "patient-1",
     doctorId: "doctor-1",
     reason: "Checkup",
-    preferredSchedule: new Date("2026-09-01T09:00:00Z"),
+    preferredSchedule: new Date("2026-09-01T02:00:00Z"),
     scheduledAt: null,
     status: "pending",
     cancellationReason: null,
@@ -72,7 +72,7 @@ class InMemoryAppointmentRepository implements AppointmentRepository {
 }
 
 describe("confirmAppointment", () => {
-  const scheduledAt = new Date("2026-09-01T10:00:00Z");
+  const scheduledAt = new Date("2026-09-01T02:30:00Z");
 
   it("confirms a pending appointment when the slot is free", async () => {
     const pending = makeAppointment();

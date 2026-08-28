@@ -1,6 +1,13 @@
 import { type FormEvent, useState } from "react";
+import {
+  CLINIC_HOURS_SUMMARY,
+  availableSlotTimes,
+  formatSlotLabel,
+  isClinicWorkingDay,
+} from "../lib/clinic-hours";
+import { CLINIC_TIME_ZONE_LABEL, clinicInputToIso, clinicToday } from "../lib/timezone";
 import { Button } from "./Button";
-import { Field, TextInput, Textarea } from "./Field";
+import { Field, Select, TextInput, Textarea } from "./Field";
 import { Modal } from "./Modal";
 import { StatusMessage } from "./StatusMessage";
 
@@ -17,6 +24,13 @@ type AppointmentActionModalProps = {
 export function AppointmentActionModal(props: AppointmentActionModalProps) {
   const { mode, onClose, onSubmit, description, footnote } = props;
   const [value, setValue] = useState("");
+  // Confirming needs a day and a slot, the same pair the patient chose from —
+  // an administrator must not be able to commit the clinic to a time it is
+  // shut. Cancelling reuses `value` for the reason text.
+  const [scheduledDate, setScheduledDate] = useState("");
+  const [scheduledTime, setScheduledTime] = useState("");
+  const slots = availableSlotTimes(scheduledDate);
+  const isWeekend = Boolean(scheduledDate) && !isClinicWorkingDay(scheduledDate);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
@@ -25,7 +39,9 @@ export function AppointmentActionModal(props: AppointmentActionModalProps) {
     setError(undefined);
     setIsSubmitting(true);
     try {
-      const payload = mode === "confirm" ? new Date(value).toISOString() : value;
+      // "confirm" carries a clinic day and slot; "cancel" carries the reason.
+      const payload =
+        mode === "confirm" ? clinicInputToIso(`${scheduledDate}T${scheduledTime}`) : value;
       await onSubmit(payload);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That didn't go through. Please try again.");
@@ -42,16 +58,50 @@ export function AppointmentActionModal(props: AppointmentActionModalProps) {
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {mode === "confirm" ? (
-          <Field label="Scheduled for" htmlFor="scheduledAt" required>
-            <TextInput
-              id="scheduledAt"
-              type="datetime-local"
+          <div className="grid gap-4">
+            <Field
+              label="Date"
+              htmlFor="scheduledDate"
+              hint={`Open ${CLINIC_HOURS_SUMMARY}.`}
               required
-              autoFocus
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-            />
-          </Field>
+            >
+              <TextInput
+                id="scheduledDate"
+                type="date"
+                min={clinicToday()}
+                required
+                autoFocus
+                value={scheduledDate}
+                onChange={(event) => {
+                  setScheduledDate(event.target.value);
+                  setScheduledTime("");
+                }}
+              />
+            </Field>
+            <Field label="Time" htmlFor="scheduledTime" hint={CLINIC_TIME_ZONE_LABEL} required>
+              <Select
+                id="scheduledTime"
+                required
+                value={scheduledTime}
+                onChange={(event) => setScheduledTime(event.target.value)}
+              >
+                <option value="">
+                  {!scheduledDate
+                    ? "Choose a date first"
+                    : isWeekend
+                      ? "Clinic closed — pick a weekday"
+                      : slots.length === 0
+                        ? "No slots left today"
+                        : "Select a time"}
+                </option>
+                {slots.map((slot) => (
+                  <option key={slot} value={slot}>
+                    {formatSlotLabel(slot)}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
         ) : (
           <Field
             label="Reason for cancelling"
@@ -76,7 +126,10 @@ export function AppointmentActionModal(props: AppointmentActionModalProps) {
           <Button
             type="submit"
             variant={mode === "cancel" ? "danger" : "primary"}
-            disabled={isSubmitting || !value.trim()}
+            disabled={
+              isSubmitting ||
+              (mode === "confirm" ? !scheduledDate || !scheduledTime : !value.trim())
+            }
           >
             {isSubmitting
               ? mode === "confirm"

@@ -12,6 +12,7 @@ import {
   RequirePatientProfile,
   RequireStaff,
 } from "./components/RouteGuards";
+import { AccountProvider } from "./lib/use-account";
 import { AccountPage } from "./pages/AccountPage";
 import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { BookAppointmentPage } from "./pages/BookAppointmentPage";
@@ -172,5 +173,11 @@ const router = createBrowserRouter(
 );
 
 export function App() {
-  return <RouterProvider router={router} />;
+  // Outside the router: the nav bar renders on every authenticated route, and
+  // the account it shows must survive navigation between them.
+  return (
+    <AccountProvider>
+      <RouterProvider router={router} />
+    </AccountProvider>
+  );
 }

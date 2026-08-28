@@ -314,6 +314,32 @@ export interface NewStaffInvite {
   invitedByUserId: string;
 }
 
+export interface AccountProfile {
+  id: string;
+  email: string;
+  name: string;
+  firstName: string | null;
+  middleName: string | null;
+  lastName: string | null;
+  suffix: string | null;
+  imagePath: string | null;
+}
+
+export interface AccountProfileRepository {
+  findById(userId: string): Promise<AccountProfile | null>;
+  updateName(
+    userId: string,
+    name: {
+      displayName: string;
+      firstName: string;
+      middleName: string | null;
+      lastName: string;
+      suffix: string | null;
+    },
+  ): Promise<AccountProfile>;
+  updateImagePath(userId: string, imagePath: string | null): Promise<AccountProfile>;
+}
+
 export interface StaffAccountRepository {
   // Every non-patient account — the roster an admin manages.
   listStaffAndAdmins(): Promise<UserAccount[]>;

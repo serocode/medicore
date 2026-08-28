@@ -34,7 +34,18 @@ const optionalText = z.preprocess(
   z.string().max(MAX_TEXT, `Must be ${MAX_TEXT} characters or fewer`).optional(),
 );
 
-const notInTheFuture = (value: string) => new Date(value).getTime() <= Date.now();
+// The clinic is in Manila (UTC+8) and a birth date arrives as a bare
+// YYYY-MM-DD, which parses as UTC midnight. Comparing that against the
+// server's `now` would reject today's date for the first eight hours of every
+// Manila day, so the bound is the end of the current clinic day.
+const CLINIC_OFFSET_MS = 8 * 60 * 60 * 1000;
+const END_OF_CLINIC_DAY_MS = 24 * 60 * 60 * 1000 - 1;
+
+const notInTheFuture = (value: string) => {
+  const clinicDayStart =
+    Math.floor((Date.now() + CLINIC_OFFSET_MS) / (24 * 60 * 60 * 1000)) * (24 * 60 * 60 * 1000);
+  return new Date(value).getTime() <= clinicDayStart + END_OF_CLINIC_DAY_MS;
+};
 
 // Deliberately permissive: international numbering, extensions, and local
 // conventions vary far too much to pattern-match safely, and rejecting a

@@ -1,7 +1,9 @@
 import { LogOut, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { API_URL } from "../lib/api-client";
 import { authClient, useSession } from "../lib/auth-client";
+import { useAccount } from "../lib/use-account";
 import { usePatientProfile } from "../lib/use-patient-profile";
 import { Avatar } from "./Avatar";
 import { Logo } from "./Logo";
@@ -35,6 +37,7 @@ function drawerLinkClassName({ isActive }: { isActive: boolean }): string {
 
 export function NavBar() {
   const { data: session } = useSession();
+  const { data: account } = useAccount();
   const navigate = useNavigate();
   const location = useLocation();
   const role = (session?.user as { role?: string } | undefined)?.role;
@@ -78,7 +81,12 @@ export function NavBar() {
   // competes with the role's actual work.
   if (session) items = [...items, { to: "/help", label: "Help" }];
 
-  const displayName = session?.user.name || session?.user.email || "";
+  // The account is the live source for both: the auth session carries its own
+  // cached copy of the name that does not change when the account page saves a
+  // new one, and it has no photo at all.
+  const displayName =
+    account?.name || session?.user.name || account?.email || session?.user.email || "";
+  const avatarUrl = account?.imagePath ? `${API_URL}/api/uploads/${account.imagePath}` : null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
@@ -98,7 +106,7 @@ export function NavBar() {
         <div className="flex items-center gap-2">
           {session && (
             <div className="hidden items-center gap-2.5 border-l border-line pl-3 md:flex">
-              <Avatar name={displayName} size={32} />
+              <Avatar name={displayName} imageUrl={avatarUrl} size={32} />
               <div className="max-w-48">
                 <p className="truncate font-display text-sm font-semibold text-ink">
                   {displayName}
@@ -152,7 +160,7 @@ export function NavBar() {
           {session && (
             <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
               <div className="flex min-w-0 items-center gap-2.5">
-                <Avatar name={displayName} size={32} />
+                <Avatar name={displayName} imageUrl={avatarUrl} size={32} />
                 <div className="min-w-0">
                   <p className="truncate font-display text-sm font-semibold text-ink">
                     {displayName}

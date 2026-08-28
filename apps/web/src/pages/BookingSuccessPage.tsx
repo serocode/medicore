@@ -4,6 +4,7 @@ import { Avatar } from "../components/Avatar";
 import { ButtonLink } from "../components/Button";
 import { Card } from "../components/Card";
 import { formatDateTime } from "../lib/format";
+import { CLINIC_TIME_ZONE_LABEL } from "../lib/timezone";
 import type { Appointment } from "../lib/types";
 import type { Doctor } from "../lib/use-doctors";
 
@@ -47,6 +48,7 @@ export function BookingSuccessPage() {
             <p className="text-sm text-ink-muted">
               {formatDateTime(appointment.preferredSchedule)}
             </p>
+            <p className="text-caption text-ink-subtle">{CLINIC_TIME_ZONE_LABEL}</p>
           </div>
         </div>
         <p className="mt-4 border-t border-line pt-4 text-sm text-ink-muted">

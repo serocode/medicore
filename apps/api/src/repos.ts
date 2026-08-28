@@ -1,4 +1,5 @@
 import {
+  DrizzleAccountProfileRepository,
   DrizzleAppointmentRepository,
   DrizzleDoctorRepository,
   DrizzleEncounterRepository,
@@ -20,3 +21,4 @@ export const vitalSignRepository = new DrizzleVitalSignRepository(db);
 export const labTestCatalogRepository = new DrizzleLabTestCatalogRepository(db);
 export const labResultRepository = new DrizzleLabResultRepository(db);
 export const staffAccountRepository = new DrizzleStaffAccountRepository(db);
+export const accountProfileRepository = new DrizzleAccountProfileRepository(db);

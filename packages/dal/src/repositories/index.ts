@@ -7,3 +7,4 @@ export * from "./vital-sign-repository.js";
 export * from "./lab-test-catalog-repository.js";
 export * from "./lab-result-repository.js";
 export * from "./staff-account-repository.js";
+export * from "./account-profile-repository.js";

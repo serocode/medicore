@@ -6,7 +6,17 @@ import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
+  // Better Auth writes and reads `name`, and the rest of the product displays
+  // it, so it stays as the single display string. The structured parts below
+  // are the source of truth that `name` is composed from — keeping both means
+  // a name can be edited component-wise without ever having to guess where a
+  // surname ends, and every existing consumer of `name` keeps working.
   name: text("name").notNull(),
+  firstName: text("first_name"),
+  middleName: text("middle_name"),
+  lastName: text("last_name"),
+  // Optional in the strict sense: most people have none.
+  suffix: text("suffix"),
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),

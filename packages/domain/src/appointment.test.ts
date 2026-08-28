@@ -15,7 +15,7 @@ function pendingAppointment(): AppointmentState {
 
 describe("confirmAppointment", () => {
   it("moves a pending appointment to scheduled", () => {
-    const scheduledAt = new Date("2026-09-01T10:00:00Z");
+    const scheduledAt = new Date("2026-09-01T02:30:00Z");
     const result = confirmAppointment(pendingAppointment(), scheduledAt);
     expect(result.status).toBe("scheduled");
     expect(result.scheduledAt).toEqual(scheduledAt);

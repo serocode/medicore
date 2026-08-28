@@ -26,6 +26,21 @@ export interface Patient {
   deletedAt: string | null;
 }
 
+export const NAME_SUFFIXES = ["Jr.", "Sr.", "II", "III", "IV", "V"] as const;
+export type NameSuffix = (typeof NAME_SUFFIXES)[number];
+
+/** The signed-in person's own account row — name in parts, plus their photo. */
+export interface AccountProfile {
+  id: string;
+  email: string;
+  name: string;
+  firstName: string | null;
+  middleName: string | null;
+  lastName: string | null;
+  suffix: string | null;
+  imagePath: string | null;
+}
+
 export interface PatientSummary {
   id: string;
   name: string;

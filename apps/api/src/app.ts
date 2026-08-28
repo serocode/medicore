@@ -6,6 +6,7 @@ import { auth } from "./auth.js";
 import { db } from "./db.js";
 import { env } from "./env.js";
 import { mapErrorToResponse } from "./lib/http-errors.js";
+import { accountRoute } from "./routes/account.js";
 import { adminRoute } from "./routes/admin.js";
 import { appointmentsRoute } from "./routes/appointments.js";
 import { doctorsRoute } from "./routes/doctors.js";
@@ -18,7 +19,20 @@ import { uploadsRoute } from "./routes/uploads.js";
 
 export const app = new Hono();
 
-app.use("*", secureHeaders());
+// Uploaded images are rendered by <img> on the web origin, which is a
+// different origin from the API. `secureHeaders()` defaults
+// Cross-Origin-Resource-Policy to `same-origin`, and the browser blocks those
+// loads (ERR_BLOCKED_BY_RESPONSE.NotSameOrigin) regardless of CORS, because an
+// <img> load is a no-cors request that CORP is checked on separately. Only the
+// upload-serving route opts down to `cross-origin`; every other response keeps
+// the strict default. The files stay protected by the route's own auth and
+// ownership checks, not by CORP.
+const strictHeaders = secureHeaders();
+const embeddableHeaders = secureHeaders({ crossOriginResourcePolicy: "cross-origin" });
+
+app.use("*", (c, next) =>
+  c.req.path.startsWith("/api/uploads/") ? embeddableHeaders(c, next) : strictHeaders(c, next),
+);
 app.use(
   "*",
   cors({
@@ -51,6 +65,7 @@ app.route("/api/appointments", appointmentsRoute);
 app.route("/api/uploads", uploadsRoute);
 app.route("/api/staff", staffRoute);
 app.route("/api/admin", adminRoute);
+app.route("/api/account", accountRoute);
 
 app.onError((error, c) => mapErrorToResponse(error, c));
 

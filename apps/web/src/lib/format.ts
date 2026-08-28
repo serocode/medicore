@@ -1,7 +1,17 @@
 // One place for date wording, so "12 Mar 2026, 09:15" reads the same in the
 // patient's list, the admin's table, and the clinical timeline.
+//
+// Every formatter is pinned to clinic time. Medicore serves one clinic in
+// Manila, so a timestamp must read the same whatever timezone the viewer's
+// machine is set to — otherwise a nurse travelling, or a patient whose laptop
+// clock is wrong, sees a different appointment time from the one the clinic
+// confirmed. The locale is pinned for the same reason: two people looking at
+// the same record should read the same string, not "Sep 15" and "15 Sept".
 
-const DATE_TIME = new Intl.DateTimeFormat(undefined, {
+import { CLINIC_LOCALE, CLINIC_TIME_ZONE, clinicDateParts } from "./timezone";
+
+const DATE_TIME = new Intl.DateTimeFormat(CLINIC_LOCALE, {
+  timeZone: CLINIC_TIME_ZONE,
   day: "numeric",
   month: "short",
   year: "numeric",
@@ -9,13 +19,15 @@ const DATE_TIME = new Intl.DateTimeFormat(undefined, {
   minute: "2-digit",
 });
 
-const DATE_ONLY = new Intl.DateTimeFormat(undefined, {
+const DATE_ONLY = new Intl.DateTimeFormat(CLINIC_LOCALE, {
+  timeZone: CLINIC_TIME_ZONE,
   day: "numeric",
   month: "short",
   year: "numeric",
 });
 
-const WEEKDAY_TIME = new Intl.DateTimeFormat(undefined, {
+const WEEKDAY_TIME = new Intl.DateTimeFormat(CLINIC_LOCALE, {
+  timeZone: CLINIC_TIME_ZONE,
   weekday: "short",
   day: "numeric",
   month: "short",
@@ -23,7 +35,8 @@ const WEEKDAY_TIME = new Intl.DateTimeFormat(undefined, {
   minute: "2-digit",
 });
 
-const WEEKDAY_TIME_YEAR = new Intl.DateTimeFormat(undefined, {
+const WEEKDAY_TIME_YEAR = new Intl.DateTimeFormat(CLINIC_LOCALE, {
+  timeZone: CLINIC_TIME_ZONE,
   weekday: "short",
   day: "numeric",
   month: "short",
@@ -47,7 +60,7 @@ export function formatDate(value: string | Date): string {
  */
 export function formatWeekdayTime(value: string | Date): string {
   const date = new Date(value);
-  return date.getFullYear() === new Date().getFullYear()
+  return clinicDateParts(date).year === clinicDateParts(new Date()).year
     ? WEEKDAY_TIME.format(date)
     : WEEKDAY_TIME_YEAR.format(date);
 }
@@ -79,15 +92,15 @@ export function displayName(name: string | null | undefined, fallback = "Unnamed
   return name?.trim() || fallback;
 }
 
-/** True when the timestamp falls on today's calendar date. */
+/**
+ * True when the timestamp falls on today's date *in clinic time*. Comparing
+ * the viewer's local calendar would mark the wrong appointments as "Today"
+ * for anyone whose machine isn't on Manila time.
+ */
 export function isToday(value: string | Date): boolean {
-  const date = new Date(value);
-  const now = new Date();
-  return (
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  );
+  const date = clinicDateParts(value);
+  const now = clinicDateParts(new Date());
+  return date.year === now.year && date.month === now.month && date.day === now.day;
 }
 
 /**

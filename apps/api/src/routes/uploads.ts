@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { fileStorage } from "../lib/storage.js";
 import type { AuthVariables } from "../middleware/require-auth.js";
 import { requireAuth } from "../middleware/require-auth.js";
-import { labResultRepository, patientRepository } from "../repos.js";
+import { accountProfileRepository, labResultRepository, patientRepository } from "../repos.js";
 
 export const uploadsRoute = new Hono<{ Variables: AuthVariables }>();
 
@@ -16,6 +16,19 @@ const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
 uploadsRoute.get("/:key", requireAuth, async (c) => {
   const user = c.get("user");
   const key = c.req.param("key");
+
+  // Everyone can read their own profile picture, whatever their role — it is
+  // their own file and the nav bar renders it on every page.
+  const account = await accountProfileRepository.findById(user.id);
+  if (account?.imagePath === key) {
+    const ownBuffer = await fileStorage.read(key);
+    const ownExtension = key.slice(key.lastIndexOf("."));
+    return new Response(new Uint8Array(ownBuffer), {
+      headers: {
+        "Content-Type": CONTENT_TYPE_BY_EXTENSION[ownExtension] ?? "application/octet-stream",
+      },
+    });
+  }
 
   if (user.role === "doctor" || user.role === "nurse") {
     // Unscoped, matching their existing unscoped access to encounters/vitals.

@@ -37,7 +37,7 @@ async function bookAppointment(cookie: string, overrides: Record<string, unknown
     body: JSON.stringify({
       doctorId,
       reason: "Checkup",
-      preferredSchedule: "2026-11-01T10:00:00Z",
+      preferredSchedule: "2026-11-02T02:00:00Z",
       ...overrides,
     }),
   });
@@ -66,6 +66,56 @@ describe("POST /api/appointments", () => {
   });
 });
 
+describe("clinic opening hours", () => {
+  // Manila is UTC+8, so 02:00Z is 10:00 clinic time. 2 Nov 2026 is a Monday,
+  // 7 Nov 2026 a Saturday.
+  // `label` keeps each case on its own account without putting an ISO
+  // timestamp — colons and all — into an email local part, which is invalid.
+  async function attempt(label: string, preferredSchedule: string) {
+    const cookie = await signInAsPatient(app, `hours-${label}@example.com`);
+    await registerTestPatient(app, { cookie, doctorId });
+    return bookAppointment(cookie, { preferredSchedule });
+  }
+
+  it("accepts a slot inside opening hours", async () => {
+    expect((await attempt("inside", "2026-11-02T02:00:00Z")).status).toBe(201); // Mon 10:00
+  });
+
+  it("refuses a weekend request", async () => {
+    expect((await attempt("weekend", "2026-11-07T02:00:00Z")).status).toBe(400); // Sat 10:00
+  });
+
+  it("refuses a time outside opening hours", async () => {
+    expect((await attempt("after-hours", "2026-11-02T19:00:00Z")).status).toBe(400); // Tue 03:00
+  });
+
+  it("refuses the lunch break", async () => {
+    expect((await attempt("lunch", "2026-11-02T04:30:00Z")).status).toBe(400); // Mon 12:30
+  });
+
+  it("refuses a time that isn't on a half hour", async () => {
+    expect((await attempt("off-grid", "2026-11-02T02:15:00Z")).status).toBe(400); // Mon 10:15
+  });
+
+  it("refuses a date in the past, which the form only guarded client-side", async () => {
+    expect((await attempt("past", "2020-11-02T02:00:00Z")).status).toBe(400);
+  });
+
+  it("refuses an administrator confirming outside opening hours", async () => {
+    const cookie = await signInAsPatient(app, "hours-confirm@example.com");
+    await registerTestPatient(app, { cookie, doctorId });
+    const appointment = await bookedAppointment(cookie);
+    const adminCookie = await signInAsAdmin(app);
+
+    const res = await app.request(`/api/appointments/${appointment.id}/confirm`, {
+      method: "PATCH",
+      headers: { Cookie: adminCookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ scheduledAt: "2026-11-07T02:00:00Z" }), // Sat 10:00
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("appointment confirm/cancel authorization and business rules", () => {
   it("rejects a patient trying to confirm (admin-only)", async () => {
     const cookie = await signInAsPatient(app, "patient-confirm@example.com");
@@ -75,7 +125,7 @@ describe("appointment confirm/cancel authorization and business rules", () => {
     const res = await app.request(`/api/appointments/${appointment.id}/confirm`, {
       method: "PATCH",
       headers: { Cookie: cookie, "Content-Type": "application/json" },
-      body: JSON.stringify({ scheduledAt: "2026-11-01T14:00:00Z" }),
+      body: JSON.stringify({ scheduledAt: "2026-11-02T06:00:00Z" }),
     });
     expect(res.status).toBe(403);
   });
@@ -89,20 +139,20 @@ describe("appointment confirm/cancel authorization and business rules", () => {
     const confirmA = await app.request(`/api/appointments/${appointmentA.id}/confirm`, {
       method: "PATCH",
       headers: { Cookie: adminCookie, "Content-Type": "application/json" },
-      body: JSON.stringify({ scheduledAt: "2026-11-01T14:00:00Z" }),
+      body: JSON.stringify({ scheduledAt: "2026-11-02T06:00:00Z" }),
     });
     expect(confirmA.status).toBe(200);
 
     const cookieB = await signInAsPatient(app, "double-b@example.com");
     await registerTestPatient(app, { cookie: cookieB, doctorId });
     const appointmentB = await bookedAppointment(cookieB, {
-      preferredSchedule: "2026-11-02T09:00:00Z",
+      preferredSchedule: "2026-11-03T02:00:00Z",
     });
 
     const conflictRes = await app.request(`/api/appointments/${appointmentB.id}/confirm`, {
       method: "PATCH",
       headers: { Cookie: adminCookie, "Content-Type": "application/json" },
-      body: JSON.stringify({ scheduledAt: "2026-11-01T14:00:00Z" }),
+      body: JSON.stringify({ scheduledAt: "2026-11-02T06:00:00Z" }),
     });
     expect(conflictRes.status).toBe(409);
   });
@@ -183,7 +233,7 @@ describe("appointment confirm/cancel authorization and business rules", () => {
     await app.request(`/api/appointments/${appointment.id}/confirm`, {
       method: "PATCH",
       headers: { Cookie: adminCookie, "Content-Type": "application/json" },
-      body: JSON.stringify({ scheduledAt: "2026-11-01T14:00:00Z" }),
+      body: JSON.stringify({ scheduledAt: "2026-11-02T06:00:00Z" }),
     });
 
     const patientStats = await app.request("/api/appointments/stats", {
@@ -226,7 +276,7 @@ describe("GET /api/appointments cross-user isolation", () => {
     const cookie = await signInAsPatient(app, "doctor-schedule@example.com");
     await registerTestPatient(app, { cookie, doctorId });
     await bookAppointment(cookie, { doctorId: profile.doctor.id });
-    await bookAppointment(cookie, { preferredSchedule: "2026-11-04T09:00:00Z" });
+    await bookAppointment(cookie, { preferredSchedule: "2026-11-05T02:00:00Z" });
 
     const res = await app.request("/api/appointments", { headers: { Cookie: doctorCookie } });
     const { appointments } = await readJson<AppointmentsListResponse>(res);
@@ -240,7 +290,7 @@ describe("GET /api/appointments cross-user isolation", () => {
 
     const cookieB = await signInAsPatient(app, "nurse-view-b@example.com");
     await registerTestPatient(app, { cookie: cookieB, doctorId });
-    await bookAppointment(cookieB, { preferredSchedule: "2026-11-03T09:00:00Z" });
+    await bookAppointment(cookieB, { preferredSchedule: "2026-11-04T02:00:00Z" });
 
     const nurseCookie = await signInAsNurse(app);
     const res = await app.request("/api/appointments", { headers: { Cookie: nurseCookie } });

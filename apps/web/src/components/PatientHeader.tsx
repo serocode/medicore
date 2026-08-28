@@ -1,15 +1,18 @@
 import { Droplet, Mail, Phone } from "lucide-react";
 import { formatDate, significantAllergies } from "../lib/format";
+import { clinicDateParts } from "../lib/timezone";
 import type { Patient } from "../lib/types";
 import { Avatar } from "./Avatar";
 import { MedicalAlert } from "./MedicalAlert";
 
+// Compared on the clinic's calendar, so a birthday rolls over at midnight in
+// Manila rather than wherever the viewer happens to be.
 function calculateAge(birthDate: string): number {
-  const dob = new Date(birthDate);
-  const now = new Date();
-  let age = now.getFullYear() - dob.getFullYear();
-  const monthDiff = now.getMonth() - dob.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dob.getDate())) {
+  const dob = clinicDateParts(birthDate);
+  const now = clinicDateParts(new Date());
+  let age = now.year - dob.year;
+  const monthDiff = now.month - dob.month;
+  if (monthDiff < 0 || (monthDiff === 0 && now.day < dob.day)) {
     age -= 1;
   }
   return age;
