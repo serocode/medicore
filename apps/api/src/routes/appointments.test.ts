@@ -2,7 +2,12 @@ import { ensureTestDoctor, truncateAll } from "@healthcare/dal/src/test-utils/te
 import { beforeEach, describe, expect, it } from "vitest";
 import { app } from "../app.js";
 import { db } from "../db.js";
-import { signInAsAdmin, signInAsPatient } from "../test-utils/api-test-client.js";
+import {
+  signInAsAdmin,
+  signInAsDoctor,
+  signInAsNurse,
+  signInAsPatient,
+} from "../test-utils/api-test-client.js";
 import { readJson } from "../test-utils/read-json.js";
 import { registerTestPatient } from "../test-utils/register-patient.js";
 
@@ -124,6 +129,51 @@ describe("appointment confirm/cancel authorization and business rules", () => {
     expect((await readJson<AppointmentResponse>(goodCancel)).appointment.status).toBe("cancelled");
   });
 
+  it("lets a patient cancel their own appointment", async () => {
+    const cookie = await signInAsPatient(app, "self-cancel@example.com");
+    await registerTestPatient(app, { cookie, doctorId });
+    const appointment = await bookedAppointment(cookie);
+
+    const res = await app.request(`/api/appointments/${appointment.id}/cancel`, {
+      method: "PATCH",
+      headers: { Cookie: cookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "Can no longer make this time" }),
+    });
+    expect(res.status).toBe(200);
+    expect((await readJson<AppointmentResponse>(res)).appointment.status).toBe("cancelled");
+  });
+
+  it("hides another patient's appointment from a cancel attempt", async () => {
+    const ownerCookie = await signInAsPatient(app, "cancel-owner@example.com");
+    await registerTestPatient(app, { cookie: ownerCookie, doctorId });
+    const appointment = await bookedAppointment(ownerCookie);
+
+    const otherCookie = await signInAsPatient(app, "cancel-other@example.com");
+    await registerTestPatient(app, { cookie: otherCookie, doctorId });
+
+    const res = await app.request(`/api/appointments/${appointment.id}/cancel`, {
+      method: "PATCH",
+      headers: { Cookie: otherCookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "Not mine to cancel" }),
+    });
+    // 404, not 403 — a 403 would confirm the id exists.
+    expect(res.status).toBe(404);
+  });
+
+  it("refuses a cancel from clinical staff, who have no cancellation workflow", async () => {
+    const cookie = await signInAsPatient(app, "cancel-staff-victim@example.com");
+    await registerTestPatient(app, { cookie, doctorId });
+    const appointment = await bookedAppointment(cookie);
+
+    const doctorCookie = await signInAsDoctor(app);
+    const res = await app.request(`/api/appointments/${appointment.id}/cancel`, {
+      method: "PATCH",
+      headers: { Cookie: doctorCookie, "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "Should not be allowed" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
   it("reflects confirmed/cancelled counts in /stats (admin-only)", async () => {
     const cookie = await signInAsPatient(app, "stats-test@example.com");
     await registerTestPatient(app, { cookie, doctorId });
@@ -162,6 +212,40 @@ describe("GET /api/appointments cross-user isolation", () => {
     const res = await app.request("/api/appointments", { headers: { Cookie: cookieB } });
     const { appointments } = await readJson<AppointmentsListResponse>(res);
     expect(appointments).toHaveLength(0);
+  });
+
+  it("gives a doctor only the appointments booked with them", async () => {
+    // Signing in provisions this doctor's own profile, which is a different
+    // record from the fixture doctor — exactly the pair needed to prove the
+    // listing is scoped rather than just non-empty.
+    const doctorCookie = await signInAsDoctor(app);
+    const profile = await readJson<{ doctor: { id: string } }>(
+      await app.request("/api/staff/me", { headers: { Cookie: doctorCookie } }),
+    );
+
+    const cookie = await signInAsPatient(app, "doctor-schedule@example.com");
+    await registerTestPatient(app, { cookie, doctorId });
+    await bookAppointment(cookie, { doctorId: profile.doctor.id });
+    await bookAppointment(cookie, { preferredSchedule: "2026-11-04T09:00:00Z" });
+
+    const res = await app.request("/api/appointments", { headers: { Cookie: doctorCookie } });
+    const { appointments } = await readJson<AppointmentsListResponse>(res);
+    expect(appointments).toHaveLength(1);
+  });
+
+  it("gives a nurse the whole clinic's schedule", async () => {
+    const cookieA = await signInAsPatient(app, "nurse-view-a@example.com");
+    await registerTestPatient(app, { cookie: cookieA, doctorId });
+    await bookAppointment(cookieA);
+
+    const cookieB = await signInAsPatient(app, "nurse-view-b@example.com");
+    await registerTestPatient(app, { cookie: cookieB, doctorId });
+    await bookAppointment(cookieB, { preferredSchedule: "2026-11-03T09:00:00Z" });
+
+    const nurseCookie = await signInAsNurse(app);
+    const res = await app.request("/api/appointments", { headers: { Cookie: nurseCookie } });
+    const { appointments } = await readJson<AppointmentsListResponse>(res);
+    expect(appointments).toHaveLength(2);
   });
 });
 

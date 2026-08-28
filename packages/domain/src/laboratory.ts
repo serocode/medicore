@@ -36,3 +36,16 @@ export function cancelLabResult(result: LabResultState, reason: string): LabResu
   }
   return { ...result, status: "cancelled", cancellationReason: reason };
 }
+
+/**
+ * The specimen has left the clinic for the laboratory. This is the step that
+ * makes "pending" reachable — the status was modelled through the whole stack
+ * (domain type, database enum, status filter, dashboard query) but nothing
+ * ever produced it, so users could filter for a state that never existed.
+ */
+export function sendLabRequestToLaboratory(result: LabResultState): LabResultState {
+  if (result.status !== "requested") {
+    throw new InvalidLabResultTransitionError(result.status, "pending");
+  }
+  return { ...result, status: "pending" };
+}

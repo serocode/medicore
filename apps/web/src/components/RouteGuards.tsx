@@ -5,9 +5,9 @@ import { usePatientProfile } from "../lib/use-patient-profile";
 
 function CenteredMessage({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600">
+    <output className="flex min-h-screen items-center justify-center bg-surface text-ink-muted">
       {children}
-    </div>
+    </output>
   );
 }
 
@@ -44,11 +44,14 @@ function isStaffOrAdmin(role: string | undefined): boolean {
 // don't have patient profiles, so the profile check is skipped for them.
 export function RequirePatientProfile({ children }: { children: ReactNode }) {
   const { data: session, isPending } = useSession();
-  const { data: patient, isLoading: isProfileLoading } = usePatientProfile();
+  const isStaff = isStaffOrAdmin((session?.user as { role?: string } | undefined)?.role);
+  const { data: patient, isLoading: isProfileLoading } = usePatientProfile({
+    enabled: Boolean(session) && !isStaff,
+  });
 
   if (isPending) return <CenteredMessage>Loading…</CenteredMessage>;
   if (!session) return <Navigate to="/sign-in" replace />;
-  if (isStaffOrAdmin((session.user as { role?: string }).role)) return <>{children}</>;
+  if (isStaff) return <>{children}</>;
 
   if (isProfileLoading) return <CenteredMessage>Loading…</CenteredMessage>;
   if (!patient) return <Navigate to="/register" replace />;
@@ -61,11 +64,14 @@ export function RequirePatientProfile({ children }: { children: ReactNode }) {
 // re-submit it.
 export function RedirectIfRegistered({ children }: { children: ReactNode }) {
   const { data: session, isPending } = useSession();
-  const { data: patient, isLoading: isProfileLoading } = usePatientProfile();
+  const isStaff = isStaffOrAdmin((session?.user as { role?: string } | undefined)?.role);
+  const { data: patient, isLoading: isProfileLoading } = usePatientProfile({
+    enabled: Boolean(session) && !isStaff,
+  });
 
   if (isPending) return <CenteredMessage>Loading…</CenteredMessage>;
   if (!session) return <Navigate to="/sign-in" replace />;
-  if (isStaffOrAdmin((session.user as { role?: string }).role)) return <>{children}</>;
+  if (isStaff) return <>{children}</>;
 
   if (isProfileLoading) return <CenteredMessage>Loading…</CenteredMessage>;
   if (patient) return <Navigate to="/dashboard" replace />;

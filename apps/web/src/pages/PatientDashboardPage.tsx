@@ -1,69 +1,184 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { CalendarDays, CalendarPlus } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { AppointmentActionModal } from "../components/AppointmentActionModal";
 import { Avatar } from "../components/Avatar";
+import { Button, ButtonLink } from "../components/Button";
+import { Card } from "../components/Card";
+import { EmptyState } from "../components/EmptyState";
+import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
+import { StatusMessage } from "../components/StatusMessage";
 import { apiFetch } from "../lib/api-client";
+import { formatDateTime } from "../lib/format";
 import type { Appointment } from "../lib/types";
+
+/** Upcoming and undecided appointments belong above settled history. */
+function isOpen(appointment: Appointment): boolean {
+  return appointment.status !== "cancelled";
+}
 
 export function PatientDashboardPage() {
   const [appointments, setAppointments] = useState<Appointment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     apiFetch<{ appointments: Appointment[] }>("/api/appointments")
       .then((result) => setAppointments(result.appointments))
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load"));
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : "We couldn't load your appointments."),
+      );
   }, []);
 
+  useEffect(() => load(), [load]);
+
+  async function cancelAppointment(id: string, reason: string) {
+    await apiFetch(`/api/appointments/${id}/cancel`, {
+      method: "PATCH",
+      body: JSON.stringify({ reason }),
+    });
+    setCancellingId(null);
+    setNotice("Your appointment has been cancelled.");
+    load();
+  }
+
+  const open = appointments?.filter(isOpen) ?? [];
+  const past = appointments?.filter((a) => !isOpen(a)) ?? [];
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 bg-slate-50 p-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Your appointments</h1>
-        <Link
-          to="/book"
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          Book new appointment
-        </Link>
-      </div>
+    <>
+      <PageHeader
+        title="Your appointments"
+        description="Requests waiting on the clinic, confirmed visits, and everything you've cancelled."
+        actions={
+          <ButtonLink to="/book">
+            <CalendarPlus aria-hidden="true" className="h-4 w-4" />
+            Book appointment
+          </ButtonLink>
+        }
+      />
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <StatusMessage tone="error">{error}</StatusMessage>}
+      {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
 
-      {!error && appointments === null && <p className="text-sm text-slate-500">Loading…</p>}
-
-      {appointments && appointments.length === 0 && (
-        <p className="text-sm text-slate-600">
-          You have no appointments yet. Book your first one to get started.
-        </p>
+      {!error && appointments === null && (
+        <output className="text-sm text-ink-muted">Loading your appointments…</output>
       )}
 
-      <ul className="flex flex-col gap-3">
-        {appointments?.map((appointment) => (
-          <li
-            key={appointment.id}
-            className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-4"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar name={appointment.doctorName} imageUrl={appointment.doctorImageUrl} />
-                <div>
-                  <p className="font-medium text-slate-900">{appointment.doctorName}</p>
-                  <p className="text-sm text-slate-500">{appointment.reason}</p>
-                </div>
-              </div>
-              <StatusBadge status={appointment.status} />
-            </div>
-            <p className="text-sm text-slate-600">
-              {appointment.status === "scheduled" && appointment.scheduledAt
-                ? `Scheduled for ${new Date(appointment.scheduledAt).toLocaleString()}`
-                : `Preferred: ${new Date(appointment.preferredSchedule).toLocaleString()}`}
-            </p>
-            {appointment.cancellationReason && (
-              <p className="text-sm text-red-600">Cancelled: {appointment.cancellationReason}</p>
-            )}
-          </li>
-        ))}
-      </ul>
-    </main>
+      {appointments && appointments.length === 0 && (
+        <EmptyState
+          icon={CalendarDays}
+          title="No appointments yet"
+          description="Choose a physician and a time that suits you — the clinic will confirm the slot by email."
+          action={<ButtonLink to="/book">Book your first appointment</ButtonLink>}
+        />
+      )}
+
+      {open.length > 0 && (
+        <section aria-labelledby="open-appointments" className="flex flex-col gap-3">
+          <h2 id="open-appointments" className="text-headline-sm text-ink">
+            Upcoming
+          </h2>
+          <ul className="flex flex-col gap-3">
+            {open.map((appointment) => (
+              <li key={appointment.id}>
+                <Card className="p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar
+                        name={appointment.doctorName}
+                        imageUrl={appointment.doctorImageUrl}
+                        size={40}
+                      />
+                      <div className="min-w-0">
+                        <p className="font-display font-semibold text-ink">
+                          {appointment.doctorName}
+                        </p>
+                        <p className="truncate text-sm text-ink-muted">{appointment.reason}</p>
+                      </div>
+                    </div>
+                    <StatusBadge status={appointment.status} />
+                  </div>
+
+                  <dl className="mt-4 border-t border-line pt-4 text-sm">
+                    <div className="flex flex-wrap gap-x-2">
+                      <dt className="text-ink-subtle">
+                        {appointment.status === "scheduled" ? "Confirmed for" : "You asked for"}
+                      </dt>
+                      <dd className="font-medium text-ink">
+                        {formatDateTime(
+                          appointment.status === "scheduled" && appointment.scheduledAt
+                            ? appointment.scheduledAt
+                            : appointment.preferredSchedule,
+                        )}
+                      </dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <p className="text-caption text-ink-subtle">
+                      {appointment.status === "scheduled"
+                        ? "Need a different time? Cancel this visit and book a new one."
+                        : "The clinic will email you once this is confirmed."}
+                    </p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setCancellingId(appointment.id)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {past.length > 0 && (
+        <section aria-labelledby="past-appointments" className="flex flex-col gap-3">
+          <h2 id="past-appointments" className="text-headline-sm text-ink">
+            Cancelled
+          </h2>
+          <ul className="flex flex-col gap-3">
+            {past.map((appointment) => (
+              <li key={appointment.id}>
+                <Card className="p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-display font-semibold text-ink">
+                        {appointment.doctorName}
+                      </p>
+                      <p className="text-sm text-ink-muted">
+                        {formatDateTime(appointment.preferredSchedule)} · {appointment.reason}
+                      </p>
+                    </div>
+                    <StatusBadge status={appointment.status} />
+                  </div>
+                  {appointment.cancellationReason && (
+                    <p className="mt-3 border-t border-line pt-3 text-sm text-ink-muted">
+                      <span className="font-medium text-ink">Reason:</span>{" "}
+                      {appointment.cancellationReason}
+                    </p>
+                  )}
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {cancellingId && (
+        <AppointmentActionModal
+          mode="cancel"
+          description="The clinic will see why you cancelled. This can't be undone — you'd need to book again."
+          footnote="Rescheduling works the same way: cancel this one, then book the time you want."
+          onClose={() => setCancellingId(null)}
+          onSubmit={(reason) => cancelAppointment(cancellingId, reason)}
+        />
+      )}
+    </>
   );
 }

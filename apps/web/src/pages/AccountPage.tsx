@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AuthLayout } from "../components/AuthLayout";
 import { Button } from "../components/Button";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 import { FormSection } from "../components/FormSection";
-import { Modal } from "../components/Modal";
+import { PageHeader } from "../components/PageHeader";
 import { PatientProfileForm } from "../components/PatientProfileForm";
+import { StatusMessage } from "../components/StatusMessage";
 import { apiFetch, apiFetchForm } from "../lib/api-client";
 import { usePatientProfile } from "../lib/use-patient-profile";
 
@@ -12,48 +13,30 @@ export function AccountPage() {
   const navigate = useNavigate();
   const { data: patient, isLoading, error, refetch } = usePatientProfile();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | undefined>(undefined);
   const [saved, setSaved] = useState(false);
 
   async function handleDelete() {
-    setIsDeleting(true);
-    setDeleteError(undefined);
-    try {
-      await apiFetch("/api/patients/me", { method: "DELETE" });
-      navigate("/");
-    } catch (err) {
-      setIsDeleting(false);
-      setDeleteError(err instanceof Error ? err.message : "Failed to delete account");
-    }
+    await apiFetch("/api/patients/me", { method: "DELETE" });
+    navigate("/");
   }
 
   if (isLoading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600">
-        Loading…
-      </main>
-    );
+    return <output className="text-sm text-ink-muted">Loading your details…</output>;
   }
 
   if (error || !patient) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600">
-        {error ?? "Profile not found."}
-      </main>
-    );
+    return <StatusMessage tone="error">{error ?? "We couldn't find your profile."}</StatusMessage>;
   }
 
   return (
-    <AuthLayout wide>
-      <h1 className="text-2xl font-semibold text-slate-900">Your account</h1>
-      <p className="mb-8 mt-1 text-slate-600">Review and update your details.</p>
+    <>
+      <PageHeader
+        breadcrumbs={[{ label: "My appointments", to: "/dashboard" }, { label: "Account" }]}
+        title="Your account"
+        description="Review and update the details your care team holds for you."
+      />
 
-      {saved && (
-        <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          Your changes have been saved.
-        </p>
-      )}
+      {saved && <StatusMessage tone="success">Your changes have been saved.</StatusMessage>}
 
       <PatientProfileForm
         mode="edit"
@@ -85,38 +68,31 @@ export function AccountPage() {
         }}
       />
 
-      <div className="mt-8">
+      <div className="mt-4">
         <FormSection
           title="Delete account"
           description="Cancels any pending or scheduled appointments and removes your profile from active use. Your appointment history is kept for our records."
         >
-          <Button variant="danger" onClick={() => setIsDeleteModalOpen(true)}>
+          <Button
+            variant="danger"
+            className="self-start"
+            onClick={() => setIsDeleteModalOpen(true)}
+          >
             Delete my account
           </Button>
         </FormSection>
       </div>
 
       {isDeleteModalOpen && (
-        <Modal title="Delete your account?" onClose={() => setIsDeleteModalOpen(false)}>
-          <p className="mb-4 text-sm text-slate-600">
-            This cancels any pending or scheduled appointments. You'll need to register again to
-            book new ones. This can't be undone from here.
-          </p>
-          {deleteError && <p className="mb-4 text-sm text-red-600">{deleteError}</p>}
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => setIsDeleteModalOpen(false)}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button variant="danger" onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting ? "Deleting…" : "Delete account"}
-            </Button>
-          </div>
-        </Modal>
+        <ConfirmDialog
+          title="Delete your account?"
+          description="This cancels any pending or scheduled appointments. You'd need to register again to book new ones, and this can't be undone from here."
+          confirmLabel="Delete account"
+          pendingLabel="Deleting…"
+          onConfirm={handleDelete}
+          onClose={() => setIsDeleteModalOpen(false)}
+        />
       )}
-    </AuthLayout>
+    </>
   );
 }

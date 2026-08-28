@@ -1,29 +1,38 @@
-import { HeartPulse } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { Logo } from "./Logo";
 
-interface AuthLayoutProps {
-  children: ReactNode;
-  wide?: boolean;
-}
-
-export function AuthLayout({ children, wide = false }: AuthLayoutProps) {
+/**
+ * The signed-out shell, used only by the sign-in page. In-app forms belong in
+ * <Layout width="narrow"> — they need the product navigation, not a landing
+ * panel.
+ */
+export function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <div className="flex w-full flex-col justify-center px-6 py-10 md:w-1/2 md:px-16">
-        <div className={`mx-auto w-full ${wide ? "max-w-2xl" : "max-w-sm"}`}>
-          <Link
-            to="/"
-            className="mb-8 flex items-center gap-2 text-lg font-semibold text-slate-900"
-          >
-            <HeartPulse className="h-6 w-6" />
-            Healthcare
+    <div className="flex min-h-screen bg-surface">
+      <div className="flex w-full flex-col justify-center px-6 py-12 md:w-1/2 md:px-16">
+        <div className="mx-auto w-full max-w-sm">
+          <Link to="/" aria-label="Medicore home" className="mb-10 inline-block">
+            <Logo size="md" />
           </Link>
           {children}
         </div>
       </div>
-      <div className="relative hidden flex-1 items-center justify-center bg-linear-to-br from-slate-800 to-slate-950 md:flex">
-        <HeartPulse className="h-32 w-32 text-white/10" />
+
+      <div
+        aria-hidden="true"
+        className="relative hidden flex-1 flex-col justify-end overflow-hidden bg-primary p-16 md:flex"
+      >
+        {/* Ambient tonal wash — no imagery to license, no stock-photo clinic. */}
+        <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-primary-muted/40" />
+        <div className="absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-primary-muted/30" />
+        <blockquote className="relative max-w-md">
+          <p className="font-display text-2xl font-semibold leading-snug text-on-inverse">
+            One record per patient — appointments, consultations, vitals, and laboratory results, in
+            the order they happened.
+          </p>
+          <footer className="mt-4 text-sm text-primary-soft">Medicore</footer>
+        </blockquote>
       </div>
     </div>
   );

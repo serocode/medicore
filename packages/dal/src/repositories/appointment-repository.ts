@@ -130,6 +130,19 @@ export class DrizzleAppointmentRepository implements AppointmentRepository {
     return rows.map(toAppointmentWithDetails);
   }
 
+  async listByDoctorIdDetailed(
+    doctorId: string,
+    status?: AppointmentStatus,
+  ): Promise<AppointmentWithDetails[]> {
+    const query = detailedQuery(this.db);
+    const rows = await query.where(
+      status
+        ? and(eq(appointment.doctorId, doctorId), eq(appointment.status, status))
+        : eq(appointment.doctorId, doctorId),
+    );
+    return rows.map(toAppointmentWithDetails);
+  }
+
   async listAllDetailed(status?: AppointmentStatus): Promise<AppointmentWithDetails[]> {
     const query = detailedQuery(this.db);
     const rows = status ? await query.where(eq(appointment.status, status)) : await query;

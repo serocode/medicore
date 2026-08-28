@@ -8,10 +8,10 @@ interface FormSectionProps {
 
 export function FormSection({ title, description, children }: FormSectionProps) {
   return (
-    <section className="flex flex-col gap-4 border-b border-slate-200 pb-8 last:border-0 last:pb-0">
+    <section className="flex flex-col gap-4 border-b border-line pb-8 last:border-0 last:pb-0">
       <div>
-        <h2 className="text-lg font-medium text-slate-900">{title}</h2>
-        {description && <p className="text-sm text-slate-500">{description}</p>}
+        <h2 className="text-headline-sm text-ink">{title}</h2>
+        {description && <p className="mt-1 text-sm text-ink-muted">{description}</p>}
       </div>
       {children}
     </section>

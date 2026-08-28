@@ -3,10 +3,13 @@ import { useState } from "react";
 import { type FieldValues, type UseFormRegister, useForm } from "react-hook-form";
 import { z } from "zod";
 import { apiFetch, applyApiErrorToForm } from "../lib/api-client";
+import { MAX_CLINICAL_TEXT } from "../lib/constants";
 import type { Encounter, EncounterType, StaffRole, VitalSign } from "../lib/types";
 import { Button } from "./Button";
-import { Field, Select, Textarea } from "./Field";
+import { Field, RequiredLegend, Select, Textarea } from "./Field";
 import { FormSection } from "./FormSection";
+import { StatusMessage } from "./StatusMessage";
+import { UnsavedChangesGuard } from "./UnsavedChangesGuard";
 import { VitalsForm } from "./VitalsForm";
 
 const ENCOUNTER_TYPE_OPTIONS: { value: EncounterType; label: string }[] = [
@@ -17,17 +20,24 @@ const ENCOUNTER_TYPE_OPTIONS: { value: EncounterType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
+// Matches the server ceiling so an over-long note is caught in the form
+// rather than coming back as a request failure.
+const clinicalText = z
+  .string()
+  .max(MAX_CLINICAL_TEXT, `Must be ${MAX_CLINICAL_TEXT} characters or fewer`)
+  .optional();
+
 const encounterFormSchema = z.object({
   encounterType: z.enum(["consultation", "follow_up", "nursing_check", "vitals_only", "other"]),
-  chiefComplaint: z.string().optional(),
-  subjective: z.string().optional(),
-  objectiveFindings: z.string().optional(),
-  assessment: z.string().optional(),
-  diagnosis: z.string().optional(),
-  plan: z.string().optional(),
-  recommendations: z.string().optional(),
-  followUpInstructions: z.string().optional(),
-  additionalNotes: z.string().optional(),
+  chiefComplaint: clinicalText,
+  subjective: clinicalText,
+  objectiveFindings: clinicalText,
+  assessment: clinicalText,
+  diagnosis: clinicalText,
+  plan: clinicalText,
+  recommendations: clinicalText,
+  followUpInstructions: clinicalText,
+  additionalNotes: clinicalText,
   bpSystolic: z.string().optional(),
   bpDiastolic: z.string().optional(),
   heartRate: z.string().optional(),
@@ -36,7 +46,7 @@ const encounterFormSchema = z.object({
   oxygenSaturation: z.string().optional(),
   weightKg: z.string().optional(),
   heightCm: z.string().optional(),
-  vitalsNotes: z.string().optional(),
+  vitalsNotes: clinicalText,
 });
 
 type EncounterFormValues = z.infer<typeof encounterFormSchema>;
@@ -64,10 +74,35 @@ export function EncounterForm({ patientId, role, onSuccess }: EncounterFormProps
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty, isSubmitSuccessful },
   } = useForm<EncounterFormValues>({
     resolver: zodResolver(encounterFormSchema),
-    defaultValues: { encounterType: role === "doctor" ? "consultation" : "nursing_check" },
+    // Every field needs a default, not just encounterType. React Hook Form
+    // derives `isDirty` by comparing against defaultValues, so a registered
+    // input missing from here reads as "" !== undefined — dirty on mount.
+    // That made the unsaved-changes guard challenge people who had typed
+    // nothing at all.
+    defaultValues: {
+      encounterType: role === "doctor" ? "consultation" : "nursing_check",
+      chiefComplaint: "",
+      subjective: "",
+      objectiveFindings: "",
+      assessment: "",
+      diagnosis: "",
+      plan: "",
+      recommendations: "",
+      followUpInstructions: "",
+      additionalNotes: "",
+      bpSystolic: "",
+      bpDiastolic: "",
+      heartRate: "",
+      respiratoryRate: "",
+      temperatureCelsius: "",
+      oxygenSaturation: "",
+      weightKg: "",
+      heightCm: "",
+      vitalsNotes: "",
+    },
   });
 
   async function submit(values: EncounterFormValues) {
@@ -106,14 +141,25 @@ export function EncounterForm({ patientId, role, onSuccess }: EncounterFormProps
       onSuccess(result);
     } catch (error) {
       applyApiErrorToForm(error, setError);
-      setSubmitError(error instanceof Error ? error.message : "Failed to save encounter");
+      setSubmitError(error instanceof Error ? error.message : "We couldn't save this encounter.");
     }
   }
 
   return (
     <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-8">
+      {/* A part-written consultation note is the most expensive thing in this
+          product to lose, so navigating away asks first. */}
+      <UnsavedChangesGuard when={isDirty && !isSubmitSuccessful} />
+
+      <RequiredLegend />
+
       <FormSection title="Encounter">
-        <Field label="Encounter type" htmlFor="encounterType" error={errors.encounterType?.message}>
+        <Field
+          label="Encounter type"
+          htmlFor="encounterType"
+          error={errors.encounterType?.message}
+          required
+        >
           <Select id="encounterType" {...register("encounterType")}>
             {ENCOUNTER_TYPE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -127,7 +173,10 @@ export function EncounterForm({ patientId, role, onSuccess }: EncounterFormProps
         </Field>
       </FormSection>
 
-      <FormSection title="Vital Signs">
+      <FormSection
+        title="Vital signs"
+        description="Leave a field blank if it wasn't measured — blanks are not recorded as zero."
+      >
         {/* VitalsForm's register prop is intentionally loosely typed
             (RHF's own composition pattern for sharing a sub-form across
             components) — this cast is the documented boundary for it. */}
@@ -135,7 +184,7 @@ export function EncounterForm({ patientId, role, onSuccess }: EncounterFormProps
       </FormSection>
 
       {role === "doctor" ? (
-        <FormSection title="SOAP Note" description="Subjective, Objective, Assessment, Plan">
+        <FormSection title="SOAP note" description="Subjective, objective, assessment, plan.">
           <Field label="Subjective" htmlFor="subjective">
             <Textarea id="subjective" {...register("subjective")} />
           </Field>
@@ -153,7 +202,7 @@ export function EncounterForm({ patientId, role, onSuccess }: EncounterFormProps
           </Field>
         </FormSection>
       ) : (
-        <FormSection title="Nursing Notes">
+        <FormSection title="Nursing notes">
           <Field label="Assessment" htmlFor="assessment">
             <Textarea id="assessment" {...register("assessment")} />
           </Field>
@@ -170,7 +219,7 @@ export function EncounterForm({ patientId, role, onSuccess }: EncounterFormProps
       )}
 
       {role === "doctor" && (
-        <FormSection title="Recommendations & Follow-up">
+        <FormSection title="Recommendations and follow-up">
           <Field label="Recommendations" htmlFor="recommendations">
             <Textarea id="recommendations" {...register("recommendations")} />
           </Field>
@@ -180,16 +229,16 @@ export function EncounterForm({ patientId, role, onSuccess }: EncounterFormProps
         </FormSection>
       )}
 
-      <FormSection title="Additional Notes">
+      <FormSection title="Additional notes">
         <Field label="Notes" htmlFor="additionalNotes">
           <Textarea id="additionalNotes" {...register("additionalNotes")} />
         </Field>
       </FormSection>
 
-      {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+      {submitError && <StatusMessage tone="error">{submitError}</StatusMessage>}
 
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Saving…" : "Save Encounter"}
+      <Button type="submit" size="lg" className="self-start" disabled={isSubmitting}>
+        {isSubmitting ? "Saving…" : "Save encounter"}
       </Button>
     </form>
   );

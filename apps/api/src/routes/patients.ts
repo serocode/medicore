@@ -26,20 +26,35 @@ patientsRoute.get("/", requireAuth, requireStaff, async (c) => {
 });
 
 const booleanFromString = z.preprocess((value) => value === "true" || value === true, z.boolean());
+const MAX_TEXT = 5000;
+const MAX_LINE = 200;
+
 const optionalText = z.preprocess(
   (value) => (value === "" ? undefined : value),
-  z.string().optional(),
+  z.string().max(MAX_TEXT, `Must be ${MAX_TEXT} characters or fewer`).optional(),
 );
 
 const notInTheFuture = (value: string) => new Date(value).getTime() <= Date.now();
 
+// Deliberately permissive: international numbering, extensions, and local
+// conventions vary far too much to pattern-match safely, and rejecting a
+// real emergency contact is worse than accepting an odd-looking one. This
+// only rules out input that could not be a phone number at all.
+const looksLikePhone = (value: string) =>
+  /^[+()\d][\d\s().+-]*(?:(?:ext|x|#)\.?\s*\d+)?$/i.test(value.trim()) &&
+  (value.match(/\d/g)?.length ?? 0) >= 7;
+
 const patientProfileSchema = z.object({
   birthDate: z.string().min(1).refine(notInTheFuture, "Date of birth cannot be in the future"),
   gender: z.enum(["male", "female", "other"]),
-  address: z.string().min(1),
-  occupation: z.string().min(1),
-  emergencyContactName: z.string().min(1),
-  emergencyContactPhone: z.string().min(1),
+  address: z.string().min(1).max(MAX_LINE),
+  occupation: z.string().min(1).max(MAX_LINE),
+  emergencyContactName: z.string().min(1).max(MAX_LINE),
+  emergencyContactPhone: z
+    .string()
+    .min(1)
+    .max(40)
+    .refine(looksLikePhone, "Enter a contactable phone number, including at least 7 digits"),
   primaryPhysicianId: z.string().uuid(),
   insuranceProvider: optionalText,
   insurancePolicyNumber: optionalText,
@@ -47,8 +62,8 @@ const patientProfileSchema = z.object({
   currentMedications: optionalText,
   familyMedicalHistory: optionalText,
   pastMedicalHistory: optionalText,
-  identificationType: z.string().min(1),
-  identificationNumber: z.string().min(1),
+  identificationType: z.string().min(1).max(MAX_LINE),
+  identificationNumber: z.string().min(1).max(MAX_LINE),
   bloodType: optionalText,
   consentTreatment: booleanFromString,
   consentDisclosure: booleanFromString,

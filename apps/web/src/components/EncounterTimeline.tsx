@@ -1,22 +1,25 @@
-import { Stethoscope, User as UserIcon } from "lucide-react";
+import { NotebookPen, Stethoscope, User as UserIcon } from "lucide-react";
+import { formatDateTime } from "../lib/format";
 import type { Encounter } from "../lib/types";
+import { Card, CardBody } from "./Card";
+import { EmptyState } from "./EmptyState";
 
 const ENCOUNTER_TYPE_LABELS: Record<Encounter["encounterType"], string> = {
   consultation: "Consultation",
   follow_up: "Follow-up",
-  nursing_check: "Nursing Check",
-  vitals_only: "Vitals Only",
+  nursing_check: "Nursing check",
+  vitals_only: "Vitals only",
   other: "Other",
 };
 
 const FIELD_LABELS: { key: keyof Encounter; label: string }[] = [
   { key: "chiefComplaint", label: "Chief complaint" },
   { key: "subjective", label: "Subjective" },
-  { key: "objectiveFindings", label: "Objective / Observations" },
+  { key: "objectiveFindings", label: "Objective / observations" },
   { key: "assessment", label: "Assessment" },
   { key: "diagnosis", label: "Diagnosis" },
-  { key: "plan", label: "Plan / Intervention" },
-  { key: "recommendations", label: "Recommendations / Response" },
+  { key: "plan", label: "Plan / intervention" },
+  { key: "recommendations", label: "Recommendations / response" },
   { key: "followUpInstructions", label: "Follow-up instructions" },
   { key: "additionalNotes", label: "Notes" },
 ];
@@ -28,42 +31,52 @@ interface EncounterTimelineProps {
 export function EncounterTimeline({ encounters }: EncounterTimelineProps) {
   if (encounters.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-500">
-        No clinical records yet. Encounters will appear here after the first visit.
-      </p>
+      <EmptyState
+        icon={NotebookPen}
+        title="No clinical records yet"
+        description="Encounters appear here after the first visit, newest first."
+      />
     );
   }
 
   return (
-    <ul className="flex flex-col gap-4">
+    <ol className="flex flex-col gap-4">
       {encounters.map((encounter) => (
-        <li key={encounter.id} className="rounded-lg border border-slate-200 bg-white p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-slate-900">
-                {new Date(encounter.occurredAt).toLocaleString()}
-              </p>
-              <p className="flex items-center gap-1.5 text-sm text-slate-500">
-                <UserIcon className="h-3.5 w-3.5" />
-                {encounter.recordedByName}
-                <span className="capitalize">({encounter.recordedByRole})</span>
-              </p>
-            </div>
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-              <Stethoscope className="h-3.5 w-3.5" />
-              {ENCOUNTER_TYPE_LABELS[encounter.encounterType]}
-            </span>
-          </div>
-          <dl className="flex flex-col gap-2 text-sm">
-            {FIELD_LABELS.filter(({ key }) => encounter[key]).map(({ key, label }) => (
-              <div key={key}>
-                <dt className="font-medium text-slate-700">{label}</dt>
-                <dd className="text-slate-600">{encounter[key] as string}</dd>
+        <li key={encounter.id}>
+          <Card>
+            <CardBody>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-display font-semibold text-ink">
+                    {formatDateTime(encounter.occurredAt)}
+                  </p>
+                  <p className="mt-0.5 flex items-center gap-1.5 text-sm text-ink-muted">
+                    <UserIcon aria-hidden="true" className="h-3.5 w-3.5" />
+                    {encounter.recordedByName}
+                    <span className="capitalize text-ink-subtle">({encounter.recordedByRole})</span>
+                  </p>
+                </div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container px-2.5 py-1 font-display text-xs font-semibold text-ink-muted">
+                  <Stethoscope aria-hidden="true" className="h-3.5 w-3.5" />
+                  {ENCOUNTER_TYPE_LABELS[encounter.encounterType]}
+                </span>
               </div>
-            ))}
-          </dl>
+              <dl className="mt-4 flex flex-col gap-3 border-t border-line pt-4 text-sm">
+                {FIELD_LABELS.filter(({ key }) => encounter[key]).map(({ key, label }) => (
+                  <div key={key}>
+                    <dt className="text-caption uppercase tracking-wide text-ink-subtle">
+                      {label}
+                    </dt>
+                    <dd className="mt-0.5 whitespace-pre-line text-ink-muted">
+                      {encounter[key] as string}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </CardBody>
+          </Card>
         </li>
       ))}
-    </ul>
+    </ol>
   );
 }

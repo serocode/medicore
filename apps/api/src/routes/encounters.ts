@@ -21,9 +21,15 @@ import {
 
 export const encountersRoute = new Hono<{ Variables: AuthVariables }>();
 
+// Clinical narrative columns are unbounded `text`, so without a ceiling here a
+// single request could store an arbitrarily large document. 5000 characters is
+// far more than any of these fields needs in practice and is enforced on the
+// client too (see MAX_CLINICAL_TEXT in apps/web/src/lib/constants.ts).
+export const MAX_CLINICAL_TEXT = 5000;
+
 const optionalText = z.preprocess(
   (value) => (value === "" ? undefined : value),
-  z.string().optional(),
+  z.string().max(MAX_CLINICAL_TEXT, `Must be ${MAX_CLINICAL_TEXT} characters or fewer`).optional(),
 );
 function optionalRange(min: number, max: number, label: string) {
   return z.preprocess(

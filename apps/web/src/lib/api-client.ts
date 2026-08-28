@@ -1,6 +1,7 @@
 import type { FieldValues, Path, UseFormSetError } from "react-hook-form";
 
-export const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+export { API_URL } from "./constants";
+import { API_URL } from "./constants";
 
 // Per-field validation messages, as returned by the API's Zod error mapping
 // (`{ error: "Validation failed", details: { fieldName: ["message"] } }`).

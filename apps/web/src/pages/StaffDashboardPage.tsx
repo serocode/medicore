@@ -1,9 +1,17 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Search, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "../components/Avatar";
+import { ButtonLink } from "../components/Button";
+import { Card, CardHeader } from "../components/Card";
+import { EmptyState } from "../components/EmptyState";
+import { Field, TextInput } from "../components/Field";
+import { PageHeader } from "../components/PageHeader";
 import { PendingLabRequestsWidget } from "../components/PendingLabRequestsWidget";
 import { ResultsAwaitingReviewWidget } from "../components/ResultsAwaitingReviewWidget";
+import { StatusMessage } from "../components/StatusMessage";
+import { UpcomingAppointmentsWidget } from "../components/UpcomingAppointmentsWidget";
 import { apiFetch } from "../lib/api-client";
+import { displayName, significantAllergies } from "../lib/format";
 import type { PatientSummary } from "../lib/types";
 import { useStaffProfile } from "../lib/use-staff-profile";
 
@@ -11,75 +19,128 @@ export function StaffDashboardPage() {
   const { data: profile } = useStaffProfile();
   const [patients, setPatients] = useState<PatientSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     apiFetch<{ patients: PatientSummary[] }>("/api/patients")
       .then((result) => setPatients(result.patients))
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load"));
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : "We couldn't load the patient list."),
+      );
   }, []);
 
   const role = profile?.role;
 
+  const filtered = useMemo(() => {
+    if (!patients) return null;
+    const term = query.trim().toLowerCase();
+    if (!term) return patients;
+    return patients.filter((patient) => displayName(patient.name).toLowerCase().includes(term));
+  }, [patients, query]);
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 bg-slate-50 p-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">
-          {role === "nurse" ? "Nursing Dashboard" : "Doctor Dashboard"}
-        </h1>
-        <p className="text-slate-600">
-          {role === "nurse"
-            ? "Patients needing vitals and recent observations."
-            : "Your patients and recent clinical activity."}
-        </p>
-      </div>
+    <>
+      <PageHeader
+        title={role === "nurse" ? "Nursing dashboard" : "Clinical dashboard"}
+        description={
+          role === "nurse"
+            ? "Today's schedule, patients needing vitals, and laboratory work in progress."
+            : "Today's schedule, your patients, and the results waiting on your signature."
+        }
+      />
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <StatusMessage tone="error">{error}</StatusMessage>}
 
-      <div className="rounded-lg border border-slate-200 bg-white">
-        <div className="border-b border-slate-200 px-5 py-3">
-          <h2 className="font-medium text-slate-900">Patients</h2>
-        </div>
-        {!error && patients === null && (
-          <p className="px-5 py-6 text-center text-sm text-slate-500">Loading…</p>
-        )}
-        <ul className="divide-y divide-slate-100">
-          {patients?.map((patient) => (
-            <li key={patient.id} className="flex items-center justify-between gap-4 px-5 py-3">
-              <div className="flex items-center gap-3">
-                <Avatar name={patient.name} />
-                <div>
-                  <p className="font-medium text-slate-900">{patient.name}</p>
-                  {patient.allergies && (
-                    <p className="text-xs text-red-600">Allergies: {patient.allergies}</p>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-3 text-sm">
-                <Link
-                  to={`/patients/${patient.id}`}
-                  className="text-slate-600 hover:text-slate-900"
-                >
-                  View record
-                </Link>
-                <Link
-                  to={`/patients/${patient.id}/encounters/new`}
-                  className="font-medium text-slate-900 hover:underline"
-                >
-                  {role === "nurse" ? "Record vitals" : "New encounter"}
-                </Link>
-              </div>
-            </li>
-          ))}
-          {patients?.length === 0 && (
-            <li className="px-5 py-6 text-center text-sm text-slate-500">
-              No patients registered yet.
-            </li>
+      {role && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <UpcomingAppointmentsWidget role={role} />
+          <PendingLabRequestsWidget />
+          {role === "doctor" && (
+            <div className="lg:col-span-2">
+              <ResultsAwaitingReviewWidget />
+            </div>
           )}
-        </ul>
-      </div>
+        </div>
+      )}
 
-      <PendingLabRequestsWidget />
-      {role === "doctor" && <ResultsAwaitingReviewWidget />}
-    </main>
+      <Card>
+        <CardHeader
+          title="Patients"
+          description="Open a record to review history, or start a new encounter."
+          action={
+            patients && patients.length > 5 ? (
+              <div className="w-56">
+                <Field label="Search patients" htmlFor="patient-search">
+                  <TextInput
+                    id="patient-search"
+                    type="search"
+                    icon={Search}
+                    placeholder="Search by name"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                </Field>
+              </div>
+            ) : undefined
+          }
+        />
+
+        {!error && patients === null && (
+          <output className="block px-5 py-6 text-center text-sm text-ink-muted">
+            Loading patients…
+          </output>
+        )}
+
+        {filtered?.length === 0 && (
+          <EmptyState
+            bare
+            icon={Users}
+            title={query ? "No patients match that search" : "No patients registered yet"}
+            description={
+              query
+                ? "Check the spelling, or clear the search to see everyone."
+                : "Patient records appear here once someone completes registration."
+            }
+          />
+        )}
+
+        {filtered && filtered.length > 0 && (
+          <ul className="divide-y divide-line">
+            {filtered.map((patient) => {
+              const allergies = significantAllergies(patient.allergies);
+              const name = displayName(patient.name);
+              return (
+                <li
+                  key={patient.id}
+                  className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Avatar name={name} size={36} />
+                    <div className="min-w-0">
+                      <p className="truncate font-display font-semibold text-ink">{name}</p>
+                      {allergies ? (
+                        <p className="truncate text-caption font-semibold text-danger">
+                          Allergies: {allergies}
+                        </p>
+                      ) : (
+                        <p className="text-caption text-ink-subtle">No recorded allergies</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <ButtonLink to={`/patients/${patient.id}`} variant="secondary" size="sm">
+                      View record
+                    </ButtonLink>
+                    <ButtonLink to={`/patients/${patient.id}/encounters/new`} size="sm">
+                      {role === "nurse" ? "Record vitals" : "New encounter"}
+                    </ButtonLink>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+    </>
   );
 }

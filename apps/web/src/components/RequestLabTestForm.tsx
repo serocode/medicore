@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { FlaskConical } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -6,11 +7,12 @@ import { apiFetch } from "../lib/api-client";
 import type { LabResult, LabTestCatalogItem, LabTestCategory } from "../lib/types";
 import { useLabTestCatalog } from "../lib/use-lab-test-catalog";
 import { Button } from "./Button";
-import { Field, Select, Textarea } from "./Field";
+import { Field, RequiredLegend, Select, Textarea } from "./Field";
+import { StatusMessage } from "./StatusMessage";
 
 const CATEGORY_LABELS: Record<LabTestCategory, string> = {
   hematology: "Hematology",
-  blood_chemistry: "Blood Chemistry",
+  blood_chemistry: "Blood chemistry",
   urinalysis: "Urinalysis",
   microbiology: "Microbiology",
   immunology: "Immunology",
@@ -20,7 +22,7 @@ const CATEGORY_LABELS: Record<LabTestCategory, string> = {
 };
 
 const requestSchema = z.object({
-  catalogItemId: z.string().uuid("Select a test"),
+  catalogItemId: z.string().uuid("Choose the test to order"),
   requestNotes: z.string().optional(),
 });
 
@@ -65,19 +67,28 @@ export function RequestLabTestForm({ patientId, onSuccess }: RequestLabTestFormP
       );
       onSuccess(result.labResult);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Failed to request test");
+      setSubmitError(error instanceof Error ? error.message : "We couldn't submit this request.");
     }
   }
 
-  if (isLoading) return <p className="text-sm text-slate-500">Loading test catalog…</p>;
-  if (catalogError) return <p className="text-sm text-red-600">{catalogError}</p>;
+  if (isLoading) {
+    return <output className="text-sm text-ink-muted">Loading the test catalogue…</output>;
+  }
+  if (catalogError) return <StatusMessage tone="error">{catalogError}</StatusMessage>;
 
   const groups = groupByCategory(catalog ?? []);
 
   return (
-    <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4">
-      <Field label="Test" htmlFor="catalogItemId" error={errors.catalogItemId?.message}>
-        <Select id="catalogItemId" defaultValue="" {...register("catalogItemId")}>
+    <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-5">
+      <RequiredLegend />
+
+      <Field label="Test" htmlFor="catalogItemId" error={errors.catalogItemId?.message} required>
+        <Select
+          id="catalogItemId"
+          icon={FlaskConical}
+          defaultValue=""
+          {...register("catalogItemId")}
+        >
           <option value="" disabled>
             Select a test
           </option>
@@ -93,14 +104,18 @@ export function RequestLabTestForm({ patientId, onSuccess }: RequestLabTestFormP
         </Select>
       </Field>
 
-      <Field label="Reason / clinical indication" htmlFor="requestNotes">
+      <Field
+        label="Clinical indication"
+        htmlFor="requestNotes"
+        hint="Optional, but it tells the laboratory and the reviewing doctor what you're looking for."
+      >
         <Textarea id="requestNotes" {...register("requestNotes")} />
       </Field>
 
-      {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+      {submitError && <StatusMessage tone="error">{submitError}</StatusMessage>}
 
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Requesting…" : "Request Test"}
+      <Button type="submit" size="lg" className="self-start" disabled={isSubmitting}>
+        {isSubmitting ? "Requesting…" : "Request test"}
       </Button>
     </form>
   );

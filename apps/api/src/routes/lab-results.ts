@@ -9,6 +9,7 @@ import {
   listLabResultsForPatient,
   requestLabTest,
   reviewLabResult,
+  sendLabRequest,
   uploadLabResult,
 } from "@healthcare/application";
 import { InvalidLabResultTransitionError, type LabResultStatus } from "@healthcare/domain";
@@ -17,6 +18,7 @@ import { z } from "zod";
 import { fileStorage } from "../lib/storage.js";
 import type { AuthVariables } from "../middleware/require-auth.js";
 import { requireAuth } from "../middleware/require-auth.js";
+import { requireDoctor } from "../middleware/require-doctor.js";
 import { requireStaff } from "../middleware/require-staff.js";
 import {
   doctorRepository,
@@ -30,6 +32,22 @@ import {
 // Patient-nested routes (mounted on /api/patients), matching encounters.ts's
 // convention.
 export const labResultsRoute = new Hono<{ Variables: AuthVariables }>();
+
+/**
+ * Loads a lab result and proves it belongs to the patient in the path.
+ *
+ * Every result route needs this pairing, and it was open-coded in four
+ * places. Throwing LabResultNotFoundError rather than a 403 is deliberate:
+ * a distinguishable "exists but not yours" would let a caller enumerate
+ * other patients' result ids by guessing UUIDs under their own prefix.
+ */
+async function loadOwnedLabResult(patientId: string, labResultId: string) {
+  const detail = await getLabResultDetail(labResultId, { labResults: labResultRepository });
+  if (detail.labResult.patientId !== patientId) {
+    throw new LabResultNotFoundError();
+  }
+  return detail;
+}
 
 // Cross-patient routes (mounted on /api/lab-results) — the dashboard
 // widgets need to list across patients by status, not within one patient.
@@ -128,12 +146,7 @@ labResultsRoute.get(
     const patientId = c.req.param("patientId");
     const labResultId = c.req.param("labResultId");
 
-    const detail = await getLabResultDetail(labResultId, { labResults: labResultRepository });
-    // Guards against enumerating another patient's result by guessing a
-    // UUID under the wrong patient prefix.
-    if (detail.labResult.patientId !== patientId) {
-      throw new LabResultNotFoundError();
-    }
+    const detail = await loadOwnedLabResult(patientId, labResultId);
 
     return c.json(detail);
   },
@@ -171,10 +184,7 @@ labResultsRoute.post(
     const patientId = c.req.param("patientId");
     const labResultId = c.req.param("labResultId");
 
-    const existing = await getLabResultDetail(labResultId, { labResults: labResultRepository });
-    if (existing.labResult.patientId !== patientId) {
-      throw new LabResultNotFoundError();
-    }
+    const existing = await loadOwnedLabResult(patientId, labResultId);
     // Fail before touching the filesystem: a result that's already cancelled
     // or reviewed can never legally receive an upload, so there's no reason
     // to write a file that would just end up orphaned.
@@ -237,17 +247,15 @@ labResultsRoute.patch(
   "/:patientId/lab-results/:labResultId/review",
   requireAuth,
   requireStaff,
+  requireDoctor,
   async (c) => {
     const user = c.get("user");
     const patientId = c.req.param("patientId");
     const labResultId = c.req.param("labResultId");
 
-    const existing = await getLabResultDetail(labResultId, { labResults: labResultRepository });
-    if (existing.labResult.patientId !== patientId) {
-      throw new LabResultNotFoundError();
-    }
+    const existing = await loadOwnedLabResult(patientId, labResultId);
 
-    const staff = await resolveStaffIdentity(user.id, user.role as "doctor" | "nurse");
+    const staff = await resolveStaffIdentity(user.id, "doctor");
     const input = reviewSchema.parse(await c.req.json());
 
     const labResult = await reviewLabResult(
@@ -278,10 +286,7 @@ labResultsRoute.patch(
     const patientId = c.req.param("patientId");
     const labResultId = c.req.param("labResultId");
 
-    const existing = await getLabResultDetail(labResultId, { labResults: labResultRepository });
-    if (existing.labResult.patientId !== patientId) {
-      throw new LabResultNotFoundError();
-    }
+    const existing = await loadOwnedLabResult(patientId, labResultId);
 
     const input = cancelSchema.parse(await c.req.json());
 
@@ -289,6 +294,22 @@ labResultsRoute.patch(
       { labResultId, reason: input.reason },
       { labResults: labResultRepository },
     );
+
+    return c.json({ labResult });
+  },
+);
+
+labResultsRoute.patch(
+  "/:patientId/lab-results/:labResultId/send-to-laboratory",
+  requireAuth,
+  requireStaff,
+  async (c) => {
+    const patientId = c.req.param("patientId");
+    const labResultId = c.req.param("labResultId");
+
+    await loadOwnedLabResult(patientId, labResultId);
+
+    const labResult = await sendLabRequest({ labResultId }, { labResults: labResultRepository });
 
     return c.json({ labResult });
   },

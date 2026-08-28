@@ -1,6 +1,9 @@
 import { CheckCircle2 } from "lucide-react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { Avatar } from "../components/Avatar";
+import { ButtonLink } from "../components/Button";
+import { Card } from "../components/Card";
+import { formatDateTime } from "../lib/format";
 import type { Appointment } from "../lib/types";
 import type { Doctor } from "../lib/use-doctors";
 
@@ -20,35 +23,43 @@ export function BookingSuccessPage() {
   const { appointment, doctor } = state;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-50 p-8 text-center">
-      <CheckCircle2 className="h-16 w-16 text-emerald-500" />
+    <div className="flex flex-col items-center gap-6 py-6 text-center">
+      <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-soft">
+        <CheckCircle2 aria-hidden="true" className="h-8 w-8 text-primary" />
+      </span>
+
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">
-          Your <span className="text-emerald-600">appointment request</span> has been successfully
-          submitted!
-        </h1>
-        <p className="mt-2 text-slate-600">We will be in touch shortly to confirm.</p>
+        <h1 className="text-headline-lg text-ink">Request sent</h1>
+        <p className="mx-auto mt-3 max-w-md text-ink-muted">
+          The clinic will confirm your time and email you. Until then it shows as
+          <span className="whitespace-nowrap"> “awaiting confirmation”</span> on your dashboard.
+        </p>
       </div>
 
-      <div className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-slate-200 bg-white p-6 text-left">
-        <p className="text-sm font-medium text-slate-500">Requested appointment details</p>
-        <div className="flex items-center gap-3">
-          <Avatar name={doctor?.name ?? "Doctor"} imageUrl={doctor?.imageUrl} size={40} />
-          <div>
-            <p className="font-medium text-slate-900">{doctor?.name ?? "Selected physician"}</p>
-            <p className="text-sm text-slate-500">
-              {new Date(appointment.preferredSchedule).toLocaleString()}
+      <Card className="w-full max-w-sm p-6 text-left">
+        <p className="font-display text-label uppercase text-ink-subtle">You requested</p>
+        <div className="mt-4 flex items-center gap-3">
+          <Avatar name={doctor?.name ?? "Physician"} imageUrl={doctor?.imageUrl} size={44} />
+          <div className="min-w-0">
+            <p className="font-display font-semibold text-ink">
+              {doctor?.name ?? "Selected physician"}
+            </p>
+            <p className="text-sm text-ink-muted">
+              {formatDateTime(appointment.preferredSchedule)}
             </p>
           </div>
         </div>
-      </div>
+        <p className="mt-4 border-t border-line pt-4 text-sm text-ink-muted">
+          {appointment.reason}
+        </p>
+      </Card>
 
-      <Link
-        to="/book"
-        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50"
-      >
-        Book another appointment
-      </Link>
-    </main>
+      <div className="flex flex-wrap justify-center gap-3">
+        <ButtonLink to="/dashboard">View my appointments</ButtonLink>
+        <ButtonLink to="/book" variant="secondary">
+          Book another
+        </ButtonLink>
+      </div>
+    </div>
   );
 }

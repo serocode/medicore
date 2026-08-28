@@ -1,10 +1,12 @@
+// Drawn from the emerald/ochre/neutral system rather than Tailwind's stock
+// hues, so a wall of avatars still reads as one product.
 const PALETTE = [
-  "bg-slate-500",
-  "bg-sky-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-violet-500",
+  "bg-primary text-on-primary",
+  "bg-primary-muted text-on-primary",
+  "bg-accent text-on-primary",
+  "bg-inverse text-on-inverse",
+  "bg-primary-soft-dim text-on-primary-soft",
+  "bg-accent-soft-dim text-on-accent-soft",
 ];
 
 function initials(name: string): string {
@@ -16,7 +18,7 @@ function initials(name: string): string {
 function colorFor(name: string): string {
   let hash = 0;
   for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) % PALETTE.length;
-  return PALETTE[Math.abs(hash) % PALETTE.length] ?? "bg-slate-500";
+  return PALETTE[Math.abs(hash) % PALETTE.length] ?? "bg-primary text-on-primary";
 }
 
 interface AvatarProps {
@@ -37,7 +39,7 @@ export function Avatar({ name, imageUrl, size = 32 }: AvatarProps) {
   return (
     <span
       style={style}
-      className={`flex shrink-0 items-center justify-center rounded-full text-xs font-medium text-white ${colorFor(name)}`}
+      className={`flex shrink-0 items-center justify-center rounded-full font-display text-xs font-semibold ${colorFor(name)}`}
     >
       {initials(name)}
     </span>

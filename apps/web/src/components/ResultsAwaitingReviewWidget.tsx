@@ -1,7 +1,13 @@
+import { ClipboardCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "../lib/api-client";
+import { formatDate } from "../lib/format";
 import type { LabResultWithPatientName } from "../lib/types";
+import { ButtonLink } from "./Button";
+import { Card, CardHeader } from "./Card";
+import { EmptyState } from "./EmptyState";
+import { StatusMessage } from "./StatusMessage";
 
 export function ResultsAwaitingReviewWidget() {
   const [labResults, setLabResults] = useState<LabResultWithPatientName[] | null>(null);
@@ -12,41 +18,65 @@ export function ResultsAwaitingReviewWidget() {
     apiFetch<{ labResults: LabResultWithPatientName[] }>("/api/lab-results?status=result_available")
       .then((result) => setLabResults(result.labResults))
       .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : "Failed to load results awaiting review"),
+        setError(err instanceof Error ? err.message : "We couldn't load results awaiting review."),
       );
   }, []);
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white">
-      <div className="border-b border-slate-200 px-5 py-3">
-        <h2 className="font-medium text-slate-900">Results Awaiting Review</h2>
-      </div>
+    <Card>
+      <CardHeader
+        title="Awaiting your review"
+        description="Results are not visible as final until a doctor signs off an interpretation."
+        action={
+          labResults && labResults.length > 0 ? (
+            <span className="rounded-full bg-accent-soft-dim px-3 py-1 font-display text-xs font-semibold text-on-accent-soft">
+              {labResults.length} to review
+            </span>
+          ) : undefined
+        }
+      />
       {error ? (
-        <p className="px-5 py-6 text-center text-sm text-red-600">{error}</p>
+        <div className="p-5">
+          <StatusMessage tone="error">{error}</StatusMessage>
+        </div>
       ) : labResults === null ? (
-        <p className="px-5 py-6 text-center text-sm text-slate-500">Loading…</p>
+        <output className="block px-5 py-6 text-center text-sm text-ink-muted">
+          Loading results…
+        </output>
+      ) : labResults.length === 0 ? (
+        <EmptyState
+          bare
+          icon={ClipboardCheck}
+          title="You're all caught up"
+          description="No uploaded results are waiting on an interpretation."
+        />
       ) : (
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-line">
           {labResults.map((result) => (
-            <li key={result.id} className="flex items-center justify-between px-5 py-3 text-sm">
-              <Link
+            <li key={result.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
+              <div className="min-w-0 flex-1">
+                <Link
+                  to={`/patients/${result.patientId}/lab-results/${result.id}`}
+                  className="font-display text-sm font-semibold text-ink underline-offset-4 hover:text-primary hover:underline"
+                >
+                  {result.testName}
+                </Link>
+                <p className="truncate text-sm text-ink-muted">
+                  {result.patientName} · uploaded{" "}
+                  {result.uploadedAt ? formatDate(result.uploadedAt) : "—"}
+                </p>
+              </div>
+              <ButtonLink
                 to={`/patients/${result.patientId}/lab-results/${result.id}`}
-                className="text-slate-900 hover:underline"
+                size="sm"
+                variant="secondary"
               >
-                {result.testName} — {result.patientName}
-              </Link>
-              <span className="text-xs text-slate-500">
-                {result.uploadedAt ? new Date(result.uploadedAt).toLocaleDateString() : "—"}
-              </span>
+                Review
+              </ButtonLink>
             </li>
           ))}
-          {labResults.length === 0 && (
-            <li className="px-5 py-6 text-center text-sm text-slate-500">
-              No results awaiting review.
-            </li>
-          )}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }

@@ -1,29 +1,33 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { AuthLayout } from "../components/AuthLayout";
+import { PageHeader } from "../components/PageHeader";
 import { RequestLabTestForm } from "../components/RequestLabTestForm";
+import { StatusMessage } from "../components/StatusMessage";
+import { usePatientName } from "../lib/use-patient-name";
 
 export function RequestLabTestPage() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
+  const patientName = usePatientName(patientId);
 
   if (!patientId) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600">
-        Unable to load.
-      </main>
-    );
+    return <StatusMessage tone="error">We couldn't open this request form.</StatusMessage>;
   }
 
   return (
-    <AuthLayout>
-      <h1 className="text-2xl font-semibold text-slate-900">Request Lab Test</h1>
-      <p className="mb-8 mt-1 text-slate-600">
-        Order a laboratory or diagnostic test for this patient.
-      </p>
+    <>
+      <PageHeader
+        breadcrumbs={[
+          { label: "Dashboard", to: "/staff/dashboard" },
+          { label: patientName ?? "Patient record", to: `/patients/${patientId}` },
+          { label: "Request lab test" },
+        ]}
+        title="Request a lab test"
+        description="Order a laboratory or diagnostic test. It stays open until a result is uploaded and a doctor signs it off."
+      />
       <RequestLabTestForm
         patientId={patientId}
         onSuccess={(labResult) => navigate(`/patients/${patientId}/lab-results/${labResult.id}`)}
       />
-    </AuthLayout>
+    </>
   );
 }

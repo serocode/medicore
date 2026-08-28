@@ -1,12 +1,18 @@
-import { CalendarCheck, CircleDashed, XCircle } from "lucide-react";
+import { CalendarCheck, CalendarX, CircleDashed } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { AppointmentActionModal } from "../components/AppointmentActionModal";
 import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
+import { Card, CardHeader } from "../components/Card";
+import { EmptyState } from "../components/EmptyState";
+import { PageHeader } from "../components/PageHeader";
 import { StaffManagementSection } from "../components/StaffManagementSection";
 import { StatCard } from "../components/StatCard";
 import { StatusBadge } from "../components/StatusBadge";
+import { StatusMessage } from "../components/StatusMessage";
+import { TabPanel, Tabs } from "../components/Tabs";
 import { apiFetch } from "../lib/api-client";
+import { displayName, formatDateTime } from "../lib/format";
 import type { Appointment, AppointmentStatus } from "../lib/types";
 
 type Stats = Record<AppointmentStatus, number>;
@@ -18,11 +24,17 @@ interface ActiveAction {
 
 type Tab = "appointments" | "staff";
 
+const TABS = [
+  { id: "appointments" as const, label: "Appointments" },
+  { id: "staff" as const, label: "Staff" },
+];
+
 export function AdminDashboardPage() {
   const [tab, setTab] = useState<Tab>("appointments");
   const [stats, setStats] = useState<Stats | null>(null);
   const [appointments, setAppointments] = useState<Appointment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [activeAction, setActiveAction] = useState<ActiveAction | null>(null);
 
   const refresh = useCallback(async () => {
@@ -34,7 +46,7 @@ export function AdminDashboardPage() {
       setStats(statsResult.stats);
       setAppointments(appointmentsResult.appointments);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load");
+      setError(err instanceof Error ? err.message : "We couldn't load the dashboard.");
     }
   }, []);
 
@@ -42,162 +54,186 @@ export function AdminDashboardPage() {
     refresh();
   }, [refresh]);
 
+  // These throw on failure rather than swallowing — the modal that called them
+  // owns the error display, and closing on a failed request would hide it.
   async function confirmAppointment(id: string, scheduledAt: string) {
-    setError(null);
-    try {
-      await apiFetch(`/api/appointments/${id}/confirm`, {
-        method: "PATCH",
-        body: JSON.stringify({ scheduledAt }),
-      });
-      setActiveAction(null);
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to confirm");
-    }
+    await apiFetch(`/api/appointments/${id}/confirm`, {
+      method: "PATCH",
+      body: JSON.stringify({ scheduledAt }),
+    });
+    setActiveAction(null);
+    setNotice("Appointment scheduled. The patient has been emailed.");
+    await refresh();
   }
 
   async function cancelAppointment(id: string, reason: string) {
-    setError(null);
-    try {
-      await apiFetch(`/api/appointments/${id}/cancel`, {
-        method: "PATCH",
-        body: JSON.stringify({ reason }),
-      });
-      setActiveAction(null);
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to cancel");
-    }
+    await apiFetch(`/api/appointments/${id}/cancel`, {
+      method: "PATCH",
+      body: JSON.stringify({ reason }),
+    });
+    setActiveAction(null);
+    setNotice("Appointment cancelled. The patient has been emailed.");
+    await refresh();
   }
 
   const activeAppointment = appointments?.find((a) => a.id === activeAction?.id) ?? null;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 bg-slate-50 p-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Welcome back</h1>
-        <p className="text-slate-600">Manage today's appointments and your team's accounts.</p>
-      </div>
+    <>
+      <PageHeader
+        title="Clinic administration"
+        description="Confirm or cancel appointment requests, and manage who can sign in as staff."
+      />
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <StatusMessage tone="error">{error}</StatusMessage>}
+      {notice && <StatusMessage tone="success">{notice}</StatusMessage>}
 
-      <nav className="flex gap-1 border-b border-slate-200">
-        {(
-          [
-            { id: "appointments", label: "Appointments" },
-            { id: "staff", label: "Staff" },
-          ] as const
-        ).map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setTab(item.id)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
-              tab === item.id
-                ? "border-slate-900 text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
+      <Tabs
+        label="Administration sections"
+        tabs={TABS}
+        activeId={tab}
+        onChange={setTab}
+        idPrefix="admin"
+      />
 
-      {tab === "appointments" ? (
-        <>
+      <TabPanel id="appointments" activeId={tab} idPrefix="admin">
+        <div className="flex flex-col gap-6">
           <div className="grid gap-4 sm:grid-cols-3">
-            <StatCard
-              icon={CalendarCheck}
-              count={stats?.scheduled ?? 0}
-              label="Scheduled appointments"
-              colorClassName="bg-emerald-600"
-            />
             <StatCard
               icon={CircleDashed}
               count={stats?.pending ?? 0}
-              label="Pending appointments"
-              colorClassName="bg-amber-700"
+              label="Awaiting confirmation"
+              tone="accent"
             />
             <StatCard
-              icon={XCircle}
+              icon={CalendarCheck}
+              count={stats?.scheduled ?? 0}
+              label="Scheduled"
+              tone="primary"
+            />
+            <StatCard
+              icon={CalendarX}
               count={stats?.cancelled ?? 0}
-              label="Cancelled appointments"
-              colorClassName="bg-red-600"
+              label="Cancelled"
+              tone="danger"
             />
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-200 text-slate-500">
-                <tr>
-                  <th className="px-4 py-3 font-medium">Patient</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium">Appointment</th>
-                  <th className="px-4 py-3 font-medium">Doctor</th>
-                  <th className="px-4 py-3 font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {appointments?.map((appointment) => (
-                  <tr key={appointment.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-4 py-3 text-slate-900">{appointment.patientName}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={appointment.status} />
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">
-                      {appointment.status === "scheduled" && appointment.scheduledAt
-                        ? new Date(appointment.scheduledAt).toLocaleString()
-                        : new Date(appointment.preferredSchedule).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Avatar
-                          name={appointment.doctorName}
-                          imageUrl={appointment.doctorImageUrl}
-                          size={24}
-                        />
-                        <span className="text-slate-700">{appointment.doctorName}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        {appointment.status === "pending" && (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setActiveAction({ id: appointment.id, mode: "confirm" })}
-                          >
-                            Schedule
-                          </Button>
-                        )}
-                        {appointment.status !== "cancelled" && (
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            onClick={() => setActiveAction({ id: appointment.id, mode: "cancel" })}
-                          >
-                            Cancel
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {appointments === null && <p className="p-4 text-sm text-slate-500">Loading…</p>}
-            {appointments?.length === 0 && (
-              <p className="p-4 text-sm text-slate-500">No appointments yet.</p>
+          <Card>
+            <CardHeader
+              title="Appointment requests"
+              description="Newest requests need a confirmed time before the patient hears back."
+            />
+
+            {appointments === null && !error && (
+              <output className="block px-5 py-6 text-center text-sm text-ink-muted">
+                Loading appointments…
+              </output>
             )}
-          </div>
-        </>
-      ) : (
+
+            {appointments?.length === 0 && (
+              <EmptyState
+                bare
+                icon={CalendarCheck}
+                title="No appointments yet"
+                description="Requests appear here as soon as a patient books."
+              />
+            )}
+
+            {appointments && appointments.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-2xl text-left text-sm">
+                  <thead className="bg-surface-low text-ink-muted">
+                    <tr>
+                      <th scope="col" className="px-5 py-3 font-display font-semibold">
+                        Patient
+                      </th>
+                      <th scope="col" className="px-5 py-3 font-display font-semibold">
+                        Status
+                      </th>
+                      <th scope="col" className="px-5 py-3 font-display font-semibold">
+                        Appointment
+                      </th>
+                      <th scope="col" className="px-5 py-3 font-display font-semibold">
+                        Physician
+                      </th>
+                      <th scope="col" className="px-5 py-3 text-right font-display font-semibold">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {appointments.map((appointment) => (
+                      <tr key={appointment.id} className="hover:bg-surface">
+                        <td className="px-5 py-3 font-medium text-ink">
+                          {displayName(appointment.patientName)}
+                          <span className="block text-caption font-normal text-ink-subtle">
+                            {appointment.reason}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <StatusBadge status={appointment.status} />
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-3 text-ink-muted">
+                          {formatDateTime(
+                            appointment.status === "scheduled" && appointment.scheduledAt
+                              ? appointment.scheduledAt
+                              : appointment.preferredSchedule,
+                          )}
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <Avatar
+                              name={appointment.doctorName}
+                              imageUrl={appointment.doctorImageUrl}
+                              size={28}
+                            />
+                            <span className="text-ink-muted">{appointment.doctorName}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex justify-end gap-2">
+                            {appointment.status === "pending" && (
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  setActiveAction({ id: appointment.id, mode: "confirm" })
+                                }
+                              >
+                                Schedule
+                              </Button>
+                            )}
+                            {appointment.status !== "cancelled" && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() =>
+                                  setActiveAction({ id: appointment.id, mode: "cancel" })
+                                }
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </div>
+      </TabPanel>
+
+      <TabPanel id="staff" activeId={tab} idPrefix="admin">
         <StaffManagementSection />
-      )}
+      </TabPanel>
 
       {activeAction && activeAppointment && activeAction.mode === "confirm" && (
         <AppointmentActionModal
           mode="confirm"
+          description={`Set the time ${displayName(activeAppointment.patientName)} will be seen. They asked for ${formatDateTime(activeAppointment.preferredSchedule)}.`}
           onClose={() => setActiveAction(null)}
           onSubmit={(scheduledAt) => confirmAppointment(activeAppointment.id, scheduledAt)}
         />
@@ -205,10 +241,11 @@ export function AdminDashboardPage() {
       {activeAction && activeAppointment && activeAction.mode === "cancel" && (
         <AppointmentActionModal
           mode="cancel"
+          description={`${displayName(activeAppointment.patientName)} will be emailed the reason you give here.`}
           onClose={() => setActiveAction(null)}
           onSubmit={(reason) => cancelAppointment(activeAppointment.id, reason)}
         />
       )}
-    </main>
+    </>
   );
 }

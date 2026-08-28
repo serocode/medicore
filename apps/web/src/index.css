@@ -1,1 +1,156 @@
 @import "tailwindcss";
+
+/*
+ * Medicore Emerald design tokens — see design.md at the repo root for the
+ * source system. These are Tailwind v4 theme variables, so every token below
+ * generates the matching utilities (`--color-ink` -> `text-ink`/`bg-ink`,
+ * `--radius-card` -> `rounded-card`, `--text-headline-lg` -> that class).
+ * Prefer these over Tailwind's stock palette so the product reads as one
+ * system.
+ */
+@theme {
+  /* Surfaces — green-tinted neutrals, not pure greys. Cards sit on white. */
+  --color-surface: #f5fbf6;
+  --color-surface-low: #eff5f0;
+  --color-surface-container: #eaefeb;
+  --color-surface-high: #e4eae5;
+  --color-surface-dim: #d6dbd7;
+
+  /* Content */
+  --color-ink: #171d1a;
+  --color-ink-muted: #404945;
+  /* Darkened from design.md's #707975: that value is specified as an *outline*
+     colour, and reusing it for tertiary text measured 4.28:1 on `surface` —
+     under AA. This clears 4.5:1 on every ground it is used against. */
+  --color-ink-subtle: #656d69;
+
+  /* Lines */
+  --color-line: #c0c9c4;
+  --color-line-strong: #707975;
+
+  /* Primary — main actions, active nav, brand */
+  --color-primary: #164b3e;
+  --color-primary-hover: #1b4f42;
+  --color-primary-muted: #4a7c6d;
+  --color-primary-soft: #b8eedb;
+  --color-primary-soft-dim: #9dd1c0;
+  --color-on-primary: #ffffff;
+  --color-on-primary-soft: #1b4f42;
+
+  /* Accent (ochre) — needs attention, but not critical */
+  --color-accent: #7e570f;
+  --color-accent-soft: #ffddb0;
+  --color-accent-soft-dim: #f2be6e;
+  --color-on-accent-soft: #614000;
+
+  /* Neutral tonal pair — informational states with no urgency */
+  --color-neutral-soft: #e4e2de;
+  --color-on-neutral-soft: #474744;
+
+  /* Destructive / critical */
+  --color-danger: #ba1a1a;
+  --color-danger-soft: #ffdad6;
+  --color-on-danger-soft: #93000a;
+
+  /* Inverse — dark panels on the marketing surface */
+  --color-inverse: #2c322f;
+  --color-on-inverse: #ecf2ee;
+
+  /* Type */
+  --font-sans: "Be Vietnam Pro", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: "Manrope", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --text-display: 3rem;
+  --text-display--line-height: 3.5rem;
+  --text-display--font-weight: 700;
+  --text-display--letter-spacing: -0.02em;
+
+  --text-headline-lg: 2rem;
+  --text-headline-lg--line-height: 2.5rem;
+  --text-headline-lg--font-weight: 600;
+  --text-headline-lg--letter-spacing: -0.01em;
+
+  --text-headline-md: 1.5rem;
+  --text-headline-md--line-height: 2rem;
+  --text-headline-md--font-weight: 600;
+
+  --text-headline-sm: 1.125rem;
+  --text-headline-sm--line-height: 1.75rem;
+  --text-headline-sm--font-weight: 600;
+
+  --text-body-lg: 1.125rem;
+  --text-body-lg--line-height: 1.75rem;
+
+  --text-label: 0.875rem;
+  --text-label--line-height: 1.25rem;
+  --text-label--font-weight: 600;
+  --text-label--letter-spacing: 0.05em;
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+
+  /* Shape — controls are 8px, containers 12px (design.md "Shapes") */
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+
+  /* The signature ambient shadow: green-tinted, never pure black */
+  --shadow-ambient: 0 4px 24px -4px rgb(22 75 62 / 0.08);
+  --shadow-ambient-lg: 0 12px 40px -8px rgb(22 75 62 / 0.14);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* The design leans on a warm, humanist body face — let it render as drawn. */
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  /* One visible focus treatment for the whole product. Individual components
+     may add a ring, but nothing may remove this. */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Digits that sit in columns (vitals, lab values, counts) must line up. */
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /* Skip link: off-screen until focused. */
+  .skip-link:not(:focus) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

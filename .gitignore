@@ -19,6 +19,12 @@ uploads-test/
 npm-debug.log*
 pnpm-debug.log*
 
+# Internal working documents — kept locally, not published with the repo.
+# design.md is the source for the Tailwind theme tokens in
+# apps/web/src/index.css; those tokens are committed, the document is not.
+INITIAL_PROJECT_SETUP.md
+design.md
+
 .DS_Store
 
 .vscode/*

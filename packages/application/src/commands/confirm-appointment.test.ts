@@ -47,6 +47,10 @@ class InMemoryAppointmentRepository implements AppointmentRepository {
     throw new Error("not implemented");
   }
 
+  async listByDoctorIdDetailed(): Promise<AppointmentWithDetails[]> {
+    throw new Error("not implemented");
+  }
+
   async listAllDetailed(): Promise<AppointmentWithDetails[]> {
     throw new Error("not implemented");
   }

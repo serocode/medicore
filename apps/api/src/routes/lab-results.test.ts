@@ -109,6 +109,54 @@ describe("POST /api/patients/:patientId/lab-results", () => {
   });
 });
 
+describe("PATCH /api/patients/:patientId/lab-results/:id/send-to-laboratory", () => {
+  it("moves a requested test to pending", async () => {
+    const { patientId } = await registerAndGetPatientId("lab-send@example.com");
+    const nurseCookie = await signInAsNurse(app);
+    const { labResult } = await requestLabTest(patientId, nurseCookie);
+
+    const res = await app.request(
+      `/api/patients/${patientId}/lab-results/${labResult.id}/send-to-laboratory`,
+      { method: "PATCH", headers: { Cookie: nurseCookie } },
+    );
+    expect(res.status).toBe(200);
+    expect((await readJson<{ labResult: { status: string } }>(res)).labResult.status).toBe(
+      "pending",
+    );
+  });
+
+  it("refuses to send the same request twice", async () => {
+    const { patientId } = await registerAndGetPatientId("lab-send-twice@example.com");
+    const nurseCookie = await signInAsNurse(app);
+    const { labResult } = await requestLabTest(patientId, nurseCookie);
+    const send = () =>
+      app.request(`/api/patients/${patientId}/lab-results/${labResult.id}/send-to-laboratory`, {
+        method: "PATCH",
+        headers: { Cookie: nurseCookie },
+      });
+
+    expect((await send()).status).toBe(200);
+    // Already at the laboratory — the state machine has no requested->pending
+    // transition to make a second time, which surfaces as a 409 conflict.
+    expect((await send()).status).toBe(409);
+  });
+
+  it("hides another patient's request behind a 404", async () => {
+    const { patientId } = await registerAndGetPatientId("lab-send-owner@example.com");
+    const { patientId: otherPatientId } = await registerAndGetPatientId(
+      "lab-send-other@example.com",
+    );
+    const nurseCookie = await signInAsNurse(app);
+    const { labResult } = await requestLabTest(patientId, nurseCookie);
+
+    const res = await app.request(
+      `/api/patients/${otherPatientId}/lab-results/${labResult.id}/send-to-laboratory`,
+      { method: "PATCH", headers: { Cookie: nurseCookie } },
+    );
+    expect(res.status).toBe(404);
+  });
+});
+
 describe("lab result upload/review/cancel workflow", () => {
   it("uploads a result, transitions to result_available, then a doctor reviews it", async () => {
     const { patientId } = await registerAndGetPatientId("lab-workflow@example.com");

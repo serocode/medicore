@@ -1,4 +1,5 @@
 import {
+  AppointmentNotFoundError,
   PatientNotFoundError,
   bookAppointment,
   cancelAppointment,
@@ -14,7 +15,7 @@ import { sendAppointmentStatusEmail } from "../email.js";
 import { requireAdmin } from "../middleware/require-admin.js";
 import type { AuthVariables } from "../middleware/require-auth.js";
 import { requireAuth } from "../middleware/require-auth.js";
-import { appointmentRepository, patientRepository } from "../repos.js";
+import { appointmentRepository, doctorRepository, patientRepository } from "../repos.js";
 
 export const appointmentsRoute = new Hono<{ Variables: AuthVariables }>();
 
@@ -84,6 +85,29 @@ appointmentsRoute.get("/", requireAuth, async (c) => {
     return c.json({ appointments });
   }
 
+  // A doctor sees the appointments booked with them. A nurse sees the whole
+  // clinic's schedule — appointments are assigned to a physician, not to a
+  // nurse, so scoping a nurse to "their own" would return nothing.
+  if (user.role === "doctor") {
+    const doctor = await doctorRepository.findByUserId(user.id);
+    if (!doctor) {
+      return c.json({ appointments: [] });
+    }
+    const appointments = await listAppointmentsWithDetails(
+      { doctorId: doctor.id, status },
+      { appointments: appointmentRepository },
+    );
+    return c.json({ appointments });
+  }
+
+  if (user.role === "nurse") {
+    const appointments = await listAppointmentsWithDetails(
+      { status },
+      { appointments: appointmentRepository },
+    );
+    return c.json({ appointments });
+  }
+
   const patient = await getPatientByUserId(user.id, { patients: patientRepository });
   if (!patient) {
     return c.json({ appointments: [] });
@@ -116,10 +140,25 @@ appointmentsRoute.patch("/:id/confirm", requireAuth, requireAdmin, async (c) => 
 
 const cancelAppointmentSchema = z.object({ reason: z.string().min(1) });
 
-appointmentsRoute.patch("/:id/cancel", requireAuth, requireAdmin, async (c) => {
+// Not admin-only: a patient may withdraw their own request or cancel their own
+// scheduled visit. Everyone else — including clinical staff, who have no
+// cancellation workflow — is refused as if the appointment did not exist, so
+// this endpoint can't be used to probe for other patients' appointment ids.
+appointmentsRoute.patch("/:id/cancel", requireAuth, async (c) => {
+  const user = c.get("user");
+  const appointmentId = c.req.param("id");
+
+  if (user.role !== "admin") {
+    const patient = await getPatientByUserId(user.id, { patients: patientRepository });
+    const existing = patient ? await appointmentRepository.findById(appointmentId) : null;
+    if (!existing || existing.patientId !== patient?.id) {
+      throw new AppointmentNotFoundError();
+    }
+  }
+
   const input = cancelAppointmentSchema.parse(await c.req.json());
   const appointment = await cancelAppointment(
-    { appointmentId: c.req.param("id"), reason: input.reason },
+    { appointmentId, reason: input.reason },
     { appointments: appointmentRepository },
   );
 

@@ -5,7 +5,8 @@ import { z } from "zod";
 import { apiFetch } from "../lib/api-client";
 import type { LabResult } from "../lib/types";
 import { Button } from "./Button";
-import { Field, Textarea } from "./Field";
+import { Field, RequiredLegend, Textarea } from "./Field";
+import { StatusMessage } from "./StatusMessage";
 
 const reviewSchema = z.object({
   reviewInterpretation: z.string().min(1, "A clinical interpretation is required"),
@@ -51,33 +52,39 @@ export function ReviewLabResultForm({
       );
       onSuccess(result.labResult);
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Failed to submit review");
+      setSubmitError(error instanceof Error ? error.message : "We couldn't record this review.");
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-5">
+      <RequiredLegend />
+
       <Field
         label="Clinical interpretation"
         htmlFor="reviewInterpretation"
         error={errors.reviewInterpretation?.message}
+        hint="What these results mean for this patient. Signing off closes the request."
+        required
       >
-        <Textarea id="reviewInterpretation" {...register("reviewInterpretation")} />
+        <Textarea id="reviewInterpretation" rows={4} {...register("reviewInterpretation")} />
       </Field>
-      <Field label="Notes" htmlFor="reviewNotes">
-        <Textarea id="reviewNotes" {...register("reviewNotes")} />
-      </Field>
-      <Field label="Follow-up recommendation" htmlFor="followUpRecommendation">
-        <Textarea id="followUpRecommendation" {...register("followUpRecommendation")} />
-      </Field>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Notes" htmlFor="reviewNotes">
+          <Textarea id="reviewNotes" {...register("reviewNotes")} />
+        </Field>
+        <Field label="Follow-up recommendation" htmlFor="followUpRecommendation">
+          <Textarea id="followUpRecommendation" {...register("followUpRecommendation")} />
+        </Field>
+      </div>
       <Field label="Action taken" htmlFor="actionTaken">
         <Textarea id="actionTaken" {...register("actionTaken")} />
       </Field>
 
-      {submitError && <p className="text-sm text-red-600">{submitError}</p>}
+      {submitError && <StatusMessage tone="error">{submitError}</StatusMessage>}
 
-      <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Submitting…" : "Review Result"}
+      <Button type="submit" size="lg" className="self-start" disabled={isSubmitting}>
+        {isSubmitting ? "Saving review…" : "Sign off review"}
       </Button>
     </form>
   );

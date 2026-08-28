@@ -1,26 +1,44 @@
+import { FlaskConical, Stethoscope } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
+import { Breadcrumbs } from "../components/Breadcrumbs";
+import { ButtonLink } from "../components/Button";
+import { Card, CardBody } from "../components/Card";
 import { EncounterTimeline } from "../components/EncounterTimeline";
 import { LabResultsHistoryTable } from "../components/LabResultsHistoryTable";
 import { PatientHeader } from "../components/PatientHeader";
 import { RecentLabResultsCard } from "../components/RecentLabResultsCard";
+import { StatusMessage } from "../components/StatusMessage";
+import { TabPanel, Tabs } from "../components/Tabs";
 import { VitalsHistoryTable } from "../components/VitalsHistoryTable";
 import { apiFetch } from "../lib/api-client";
+import { displayName, formatBloodPressure, formatDate, formatVital } from "../lib/format";
 import type { Encounter, LabResult, Patient, VitalSign } from "../lib/types";
 
 type TabKey = "overview" | "vitals" | "timeline" | "labs";
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "overview", label: "Overview" },
-  { key: "vitals", label: "Vitals" },
-  { key: "timeline", label: "Timeline" },
-  { key: "labs", label: "Labs" },
-];
+const TAB_KEYS: TabKey[] = ["overview", "vitals", "timeline", "labs"];
+
+function isTabKey(value: string | null): value is TabKey {
+  return value !== null && (TAB_KEYS as string[]).includes(value);
+}
+
+function SummaryCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card>
+      <CardBody>
+        <h3 className="font-display text-label uppercase text-ink-subtle">{title}</h3>
+        <div className="mt-2 text-sm text-ink-muted">{children}</div>
+      </CardBody>
+    </Card>
+  );
+}
 
 export function PatientClinicalRecordPage() {
   const { patientId } = useParams<{ patientId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = (searchParams.get("tab") as TabKey | null) ?? "overview";
+  const tabParam = searchParams.get("tab");
+  const tab: TabKey = isTabKey(tabParam) ? tabParam : "overview";
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [name, setName] = useState("");
@@ -46,111 +64,104 @@ export function PatientClinicalRecordPage() {
         setVitals(vitalsResult.vitals);
         setLabResults(labResultsResult.labResults);
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load"));
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : "We couldn't load this record."),
+      );
   }, [patientId]);
 
-  if (error) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-red-600">
-        {error}
-      </main>
-    );
-  }
-  if (!patient) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 text-slate-600">
-        Loading…
-      </main>
-    );
-  }
+  if (error) return <StatusMessage tone="error">{error}</StatusMessage>;
+  if (!patient) return <output className="text-sm text-ink-muted">Loading the record…</output>;
 
   const latestVital = vitals?.[0];
   const latestEncounter = encounters?.[0];
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-6 bg-slate-50 p-8">
-      <PatientHeader patient={patient} name={name} email={email} />
+    <>
+      <Breadcrumbs
+        items={[{ label: "Dashboard", to: "/staff/dashboard" }, { label: displayName(name) }]}
+      />
 
-      <div className="flex items-center justify-between">
-        <nav className="flex gap-1 rounded-lg border border-slate-200 bg-white p-1">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setSearchParams({ tab: t.key })}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                tab === t.key ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
-        <div className="flex gap-2">
-          <Link
-            to={`/patients/${patientId}/lab-results/new`}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-50"
-          >
-            Request Lab Test
-          </Link>
-          <Link
-            to={`/patients/${patientId}/encounters/new`}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-          >
-            New Encounter
-          </Link>
+      <PatientHeader patient={patient} name={displayName(name)} email={email} />
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Tabs
+          label="Clinical record sections"
+          idPrefix="record"
+          activeId={tab}
+          onChange={(next) => setSearchParams({ tab: next })}
+          tabs={[
+            { id: "overview", label: "Overview" },
+            { id: "vitals", label: "Vitals", count: vitals?.length },
+            { id: "timeline", label: "Timeline", count: encounters?.length },
+            { id: "labs", label: "Labs", count: labResults?.length },
+          ]}
+        />
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink to={`/patients/${patientId}/lab-results/new`} variant="secondary" size="sm">
+            <FlaskConical aria-hidden="true" className="h-4 w-4" />
+            Request lab test
+          </ButtonLink>
+          <ButtonLink to={`/patients/${patientId}/encounters/new`} size="sm">
+            <Stethoscope aria-hidden="true" className="h-4 w-4" />
+            New encounter
+          </ButtonLink>
         </div>
       </div>
 
-      {tab === "overview" && (
+      <TabPanel id="overview" activeId={tab} idPrefix="record">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 className="mb-2 font-medium text-slate-900">Current Medications</h2>
-            <p className="text-sm text-slate-600">
-              {patient.currentMedications || "None recorded"}
-            </p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 className="mb-2 font-medium text-slate-900">Medical History</h2>
-            <p className="text-sm text-slate-600">
-              {patient.pastMedicalHistory || "None recorded"}
-            </p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 className="mb-2 font-medium text-slate-900">Most Recent Vitals</h2>
+          <SummaryCard title="Current medications">
+            {patient.currentMedications || "None recorded"}
+          </SummaryCard>
+          <SummaryCard title="Medical history">
+            {patient.pastMedicalHistory || "None recorded"}
+          </SummaryCard>
+          <SummaryCard title="Most recent vitals">
             {latestVital ? (
-              <p className="text-sm text-slate-600">
-                BP {latestVital.bpSystolic ?? "—"}/{latestVital.bpDiastolic ?? "—"}, HR{" "}
-                {latestVital.heartRate ?? "—"} bpm, Temp {latestVital.temperatureCelsius ?? "—"}°C —{" "}
-                {new Date(latestVital.recordedAt).toLocaleDateString()}
-              </p>
+              <>
+                <span className="tabular-nums">
+                  BP {formatBloodPressure(latestVital.bpSystolic, latestVital.bpDiastolic)} · HR{" "}
+                  {formatVital(latestVital.heartRate, "bpm")} · Temp{" "}
+                  {formatVital(latestVital.temperatureCelsius, "°C")}
+                </span>
+                <span className="mt-1 block text-caption text-ink-subtle">
+                  Recorded {formatDate(latestVital.recordedAt)}
+                </span>
+              </>
             ) : (
-              <p className="text-sm text-slate-500">No vitals recorded yet</p>
+              "No vitals recorded yet"
             )}
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-white p-5">
-            <h2 className="mb-2 font-medium text-slate-900">Most Recent Encounter</h2>
+          </SummaryCard>
+          <SummaryCard title="Most recent encounter">
             {latestEncounter ? (
-              <p className="text-sm text-slate-600">
-                {new Date(latestEncounter.occurredAt).toLocaleDateString()} —{" "}
-                {latestEncounter.recordedByName}
-              </p>
+              <>
+                {formatDate(latestEncounter.occurredAt)}
+                <span className="mt-1 block text-caption text-ink-subtle">
+                  {latestEncounter.recordedByName}
+                </span>
+              </>
             ) : (
-              <p className="text-sm text-slate-500">No encounters yet</p>
+              "No encounters yet"
             )}
-          </div>
+          </SummaryCard>
 
           <div className="sm:col-span-2">
             <RecentLabResultsCard labResults={labResults ?? []} patientId={patientId ?? ""} />
           </div>
         </div>
-      )}
+      </TabPanel>
 
-      {tab === "vitals" && <VitalsHistoryTable vitals={vitals ?? []} />}
-      {tab === "timeline" && <EncounterTimeline encounters={encounters ?? []} />}
-      {tab === "labs" && (
+      <TabPanel id="vitals" activeId={tab} idPrefix="record">
+        <VitalsHistoryTable vitals={vitals ?? []} />
+      </TabPanel>
+
+      <TabPanel id="timeline" activeId={tab} idPrefix="record">
+        <EncounterTimeline encounters={encounters ?? []} />
+      </TabPanel>
+
+      <TabPanel id="labs" activeId={tab} idPrefix="record">
         <LabResultsHistoryTable labResults={labResults ?? []} patientId={patientId ?? ""} />
-      )}
-    </main>
+      </TabPanel>
+    </>
   );
 }

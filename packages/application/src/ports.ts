@@ -342,6 +342,10 @@ export interface AppointmentRepository {
     patientId: string,
     status?: AppointmentStatus,
   ): Promise<AppointmentWithDetails[]>;
+  listByDoctorIdDetailed(
+    doctorId: string,
+    status?: AppointmentStatus,
+  ): Promise<AppointmentWithDetails[]>;
   listAllDetailed(status?: AppointmentStatus): Promise<AppointmentWithDetails[]>;
   findScheduledForDoctorAt(doctorId: string, scheduledAt: Date): Promise<Appointment | null>;
   countByStatus(): Promise<Record<AppointmentStatus, number>>;

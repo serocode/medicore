@@ -3,6 +3,7 @@ import type { Appointment, AppointmentRepository, AppointmentWithDetails } from 
 
 export interface ListAppointmentsFilter {
   patientId?: string;
+  doctorId?: string;
   status?: AppointmentStatus;
 }
 
@@ -24,6 +25,10 @@ export async function listAppointmentsWithDetails(
 ): Promise<AppointmentWithDetails[]> {
   if (filter.patientId) {
     return deps.appointments.listByPatientIdDetailed(filter.patientId, filter.status);
+  }
+
+  if (filter.doctorId) {
+    return deps.appointments.listByDoctorIdDetailed(filter.doctorId, filter.status);
   }
 
   return deps.appointments.listAllDetailed(filter.status);

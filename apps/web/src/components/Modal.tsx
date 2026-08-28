@@ -3,11 +3,16 @@ import { type ReactNode, useEffect, useRef } from "react";
 
 interface ModalProps {
   title: string;
+  description?: string;
   onClose: () => void;
+  /** `md` suits a confirmation; `lg` suits a form with side-by-side fields. */
+  size?: "md" | "lg";
   children: ReactNode;
 }
 
-export function Modal({ title, onClose, children }: ModalProps) {
+const SIZE_CLASSES = { md: "max-w-md", lg: "max-w-xl" } as const;
+
+export function Modal({ title, description, onClose, size = "md", children }: ModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   // Native <dialog> fires a real "close" event from a programmatic close()
@@ -36,17 +41,22 @@ export function Modal({ title, onClose, children }: ModalProps) {
       onClick={(event) => {
         if (event.target === dialogRef.current) onClose();
       }}
-      className="m-auto w-full max-w-md rounded-lg bg-white p-6 shadow-lg backdrop:bg-slate-900/50"
+      // `w-[calc(100%-2rem)]` keeps a 16px gutter on small screens instead of
+      // letting the dialog run edge to edge.
+      className={`m-auto w-[calc(100%-2rem)] rounded-card bg-white p-6 text-ink shadow-ambient-lg backdrop:bg-inverse/50 ${SIZE_CLASSES[size]}`}
     >
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-medium text-slate-900">{title}</h2>
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-headline-sm text-ink">{title}</h2>
+          {description && <p className="mt-1 text-sm text-ink-muted">{description}</p>}
+        </div>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="text-slate-400 hover:text-slate-600"
+          className="-m-1 shrink-0 rounded-control p-1 text-ink-subtle transition-colors hover:bg-surface-container hover:text-ink"
         >
-          <X className="h-5 w-5" />
+          <X aria-hidden="true" className="h-5 w-5" />
         </button>
       </div>
       {children}

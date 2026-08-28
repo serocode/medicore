@@ -12,6 +12,7 @@ export * from "./commands/request-lab-test.js";
 export * from "./commands/upload-lab-result.js";
 export * from "./commands/review-lab-result.js";
 export * from "./commands/cancel-lab-request.js";
+export * from "./commands/send-lab-request.js";
 export * from "./commands/update-staff-account-role.js";
 export * from "./commands/set-staff-account-status.js";
 export * from "./commands/invite-staff-account.js";
