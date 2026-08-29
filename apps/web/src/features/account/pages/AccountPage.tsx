@@ -14,15 +14,14 @@ import { usePatientProfile } from "@/features/patients/hooks/use-patient-profile
 import { API_URL, apiFetch, apiFetchForm, applyApiErrorToForm } from "@/shared/lib/api-client";
 import { MAX_LINE_TEXT } from "@/shared/lib/constants";
 import type { AccountProfile } from "@/shared/lib/types";
-import { Avatar } from "@/shared/ui/Avatar";
-import { Button } from "@/shared/ui/Button";
+import { Button, ExternalButtonLink } from "@/shared/ui/Button";
 import { Card, CardBody, CardHeader } from "@/shared/ui/Card";
 import { ConfirmDialog } from "@/shared/ui/ConfirmDialog";
 import { PageHeader } from "@/shared/ui/PageHeader";
 import { StatusMessage } from "@/shared/ui/StatusMessage";
 import { UnsavedChangesGuard } from "@/shared/ui/UnsavedChangesGuard";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
@@ -38,52 +37,6 @@ const accountSchema = z
   .extend(patientDetailsSchema.shape);
 
 type AccountValues = z.infer<typeof accountSchema>;
-
-/**
- * The identity card at the top. Registration is a sequence you complete once;
- * this page is a place you come back to, so it opens by showing who the
- * account *is* rather than by asking a question.
- */
-function ProfileHeader({
-  account,
-  onAccountChange,
-}: {
-  account: AccountProfile;
-  onAccountChange: (account: AccountProfile) => void;
-}) {
-  return (
-    <Card>
-      <CardBody className="flex flex-col gap-6">
-        <div className="flex min-w-0 items-center gap-4">
-          {account.imagePath ? (
-            <img
-              src={`${API_URL}/api/uploads/${account.imagePath}`}
-              alt=""
-              className="h-16 w-16 shrink-0 rounded-full border border-line object-cover"
-            />
-          ) : (
-            <Avatar name={account.name || account.email} size={64} />
-          )}
-          <div className="min-w-0">
-            <h2 className="truncate text-headline-md text-ink">{account.name || "Your account"}</h2>
-            <p className="flex items-center gap-1.5 text-sm text-ink-muted">
-              <Mail aria-hidden="true" className="h-3.5 w-3.5" />
-              <span className="truncate">{account.email}</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="border-t border-line pt-6">
-          <h3 className="font-display font-semibold text-ink">Profile photo</h3>
-          <p className="mb-4 mt-1 text-sm text-ink-muted">
-            Shown to you across Medicore. Saved as soon as you choose it.
-          </p>
-          <ProfilePhotoField account={account} onChange={onAccountChange} />
-        </div>
-      </CardBody>
-    </Card>
-  );
-}
 
 export function AccountPage() {
   const navigate = useNavigate();
@@ -188,10 +141,14 @@ export function AccountPage() {
         description="Your profile, the details your care team holds, and the consents on file."
       />
 
-      <ProfileHeader account={account} onAccountChange={setAccount} />
-
       {saved && <StatusMessage tone="success">Your changes have been saved.</StatusMessage>}
       {submitError && <StatusMessage tone="error">{submitError}</StatusMessage>}
+
+      <Card>
+        <CardBody>
+          <ProfilePhotoField account={account} onChange={setAccount} />
+        </CardBody>
+      </Card>
 
       <form onSubmit={handleSubmit(save)} className="flex flex-col gap-6">
         <UnsavedChangesGuard when={isDirty && !isSubmitSuccessful} />
@@ -245,10 +202,17 @@ export function AccountPage() {
           <CardBody className="flex flex-col gap-4">
             <IdentificationFields register={register as never} errors={errors} />
             {patient.identificationDocumentPath && (
-              <p className="flex items-center gap-1.5 text-sm text-ink-muted">
-                <ShieldCheck aria-hidden="true" className="h-4 w-4 text-primary" />A scanned copy of
-                your ID is on file.
-              </p>
+              <ExternalButtonLink
+                href={`${API_URL}/api/uploads/${patient.identificationDocumentPath}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                size="sm"
+                className="self-start"
+              >
+                <ShieldCheck aria-hidden="true" className="h-4 w-4" />
+                View scanned ID
+                <span className="sr-only"> (opens in a new tab)</span>
+              </ExternalButtonLink>
             )}
           </CardBody>
         </Card>

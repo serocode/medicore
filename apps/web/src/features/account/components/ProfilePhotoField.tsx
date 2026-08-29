@@ -3,7 +3,7 @@ import type { AccountProfile } from "@/shared/lib/types";
 import { Avatar } from "@/shared/ui/Avatar";
 import { Button } from "@/shared/ui/Button";
 import { StatusMessage } from "@/shared/ui/StatusMessage";
-import { Camera, Trash2 } from "lucide-react";
+import { Camera, Mail, Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
 
 /** Matches what the account photo route accepts. */
@@ -16,7 +16,11 @@ interface ProfilePhotoFieldProps {
 }
 
 /**
- * Upload, replace, or remove the account photo.
+ * The account's identity block: photo, name, and email, with the controls to
+ * change or remove the photo. This is the one place a profile picture is
+ * editable, so it's also the one place it's shown — folding name/email in
+ * here (rather than a separate read-only avatar elsewhere on the page) is
+ * what keeps the account from showing the same picture twice.
  *
  * Uploads immediately rather than waiting for the surrounding form to be
  * saved: a picture is a single self-contained change, and holding it hostage
@@ -106,8 +110,14 @@ export function ProfilePhotoField({ account, onChange }: ProfilePhotoFieldProps)
           )}
         </div>
 
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap gap-2">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-headline-md text-ink">{account.name || "Your account"}</h2>
+          <p className="flex items-center gap-1.5 text-sm text-ink-muted">
+            <Mail aria-hidden="true" className="h-3.5 w-3.5" />
+            <span className="truncate">{account.email}</span>
+          </p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button
               variant="secondary"
               size="sm"
@@ -123,8 +133,8 @@ export function ProfilePhotoField({ account, onChange }: ProfilePhotoFieldProps)
                 Remove
               </Button>
             )}
+            <span className="text-caption text-ink-subtle">JPEG or PNG, up to 5 MB.</span>
           </div>
-          <p className="text-caption text-ink-subtle">JPEG or PNG, up to 5 MB.</p>
         </div>
       </div>
 
