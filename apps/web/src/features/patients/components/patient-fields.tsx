@@ -1,4 +1,5 @@
 import type { Doctor } from "@/features/appointments/hooks/use-doctors";
+import { PolicyLink } from "@/features/legal/components/PolicyLink";
 import { IDENTIFICATION_TYPES, MAX_CLINICAL_TEXT, MAX_LINE_TEXT } from "@/shared/lib/constants";
 import { clinicToday } from "@/shared/lib/timezone";
 import {
@@ -225,26 +226,69 @@ export function IdentificationFields({ register, errors }: GroupProps) {
 
 export function ConsentFields({ register, errors }: GroupProps) {
   const field = useTypedRegister(register);
+  // Three separate consents, each naming what it actually covers and linking
+  // to the document that explains it — a single "I agree to everything" box
+  // is not informed consent, and this one is for medical treatment.
+  //
+  // `consentPrivacy` carries the terms and the cookie policy alongside the
+  // privacy policy: the column records "has read and accepted the published
+  // policies", and splitting it further would mean a schema migration for no
+  // gain in what the patient is actually told.
   const items = [
-    { name: "consentTreatment" as const, label: "I consent to treatment." },
+    {
+      name: "consentTreatment" as const,
+      label: "I consent to being examined and treated by this clinic's doctors and nurses.",
+    },
     {
       name: "consentDisclosure" as const,
-      label: "I consent to disclosure of my health information to my care team.",
+      label: (
+        <>
+          I consent to my health information being shared with the clinicians involved in my care,
+          as described in the <PolicyLink to="/privacy">Privacy policy</PolicyLink>.
+        </>
+      ),
     },
-    { name: "consentPrivacy" as const, label: "I acknowledge the privacy policy." },
+    {
+      name: "consentPrivacy" as const,
+      label: (
+        <>
+          I have read the <PolicyLink to="/privacy">Privacy policy</PolicyLink> and the{" "}
+          <PolicyLink to="/cookies">Cookie policy</PolicyLink>, and I accept the{" "}
+          <PolicyLink to="/terms">Terms and conditions</PolicyLink>.
+        </>
+      ),
+    },
   ];
   return (
     <div className="flex flex-col gap-3">
-      {items.map((item) => (
-        <div key={item.name}>
-          <CheckboxField id={item.name} label={item.label} {...field(item.name)} />
-          {errors[item.name] && (
-            <p role="alert" className="mt-1 text-sm text-danger">
-              {errors[item.name]?.message}
-            </p>
-          )}
-        </div>
-      ))}
+      <p className="text-sm text-ink-muted">
+        All three are required. They stay on your record where you can see them, and you can
+        withdraw a consent at any time by contacting the clinic.
+      </p>
+      {items.map((item) => {
+        // Wired by hand rather than through <Field>: a consent is a checkbox
+        // whose label is the whole sentence, so it has no separate label
+        // element for <Field> to render. The error still has to be announced
+        // with the control it belongs to, not just read out on its own.
+        const message = errors[item.name]?.message;
+        const errorId = `${item.name}-error`;
+        return (
+          <div key={item.name}>
+            <CheckboxField
+              id={item.name}
+              label={item.label}
+              aria-invalid={message ? true : undefined}
+              aria-describedby={message ? errorId : undefined}
+              {...field(item.name)}
+            />
+            {message && (
+              <p id={errorId} role="alert" className="mt-1 text-sm text-danger">
+                {message}
+              </p>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

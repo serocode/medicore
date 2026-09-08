@@ -13,7 +13,11 @@ import type { UseFormRegisterReturn } from "react-hook-form";
 
 const controlBase =
   "w-full rounded-control border bg-surface-low px-3 py-2.5 text-sm text-ink transition-colors placeholder:text-ink-subtle focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:bg-surface-container disabled:text-ink-subtle";
-const controlIdle = "border-line focus:border-primary focus:ring-accent-soft-dim";
+// `line-strong`, not `line`: the border is the only thing that marks where an
+// input begins (its fill is a half-step off the card behind it), so WCAG
+// 1.4.11 wants 3:1 against both. #c0c9c4 manages 1.69:1; #707975 manages 4.49.
+// Dividers and card edges keep `line` — they identify no control.
+const controlIdle = "border-line-strong focus:border-primary focus:ring-accent-soft-dim";
 const controlInvalid = "border-danger focus:border-danger focus:ring-danger-soft";
 
 export const inputClassName = `${controlBase} ${controlIdle}`;
@@ -22,7 +26,8 @@ export const inputClassName = `${controlBase} ${controlIdle}`;
 // the icon sits inside the focus treatment rather than beside it.
 const shellBase =
   "flex items-center gap-2 rounded-control border bg-surface-low px-3 transition-colors focus-within:ring-2";
-const shellIdle = "border-line focus-within:border-primary focus-within:ring-accent-soft-dim";
+const shellIdle =
+  "border-line-strong focus-within:border-primary focus-within:ring-accent-soft-dim";
 const shellInvalid = "border-danger focus-within:border-danger focus-within:ring-danger-soft";
 const borderlessClassName =
   "w-full border-0 bg-transparent py-2.5 text-sm text-ink placeholder:text-ink-subtle focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:text-ink-subtle";

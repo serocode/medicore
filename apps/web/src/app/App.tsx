@@ -19,6 +19,7 @@ import { RecordEncounterPage } from "@/features/encounters/pages/RecordEncounter
 import { HelpPage } from "@/features/help/pages/HelpPage";
 import { LabResultDetailPage } from "@/features/lab-results/pages/LabResultDetailPage";
 import { RequestLabTestPage } from "@/features/lab-results/pages/RequestLabTestPage";
+import { CookiePolicyPage, PrivacyPolicyPage, TermsPage } from "@/features/legal/pages/LegalPage";
 import { RegisterPatientPage } from "@/features/patients/pages/RegisterPatientPage";
 import { StaffDashboardPage } from "@/features/staff/pages/StaffDashboardPage";
 import { StaffProfilePage } from "@/features/staff/pages/StaffProfilePage";
@@ -37,6 +38,34 @@ const router = createBrowserRouter(
     <Route>
       <Route path="/" element={<HomePage />} />
       <Route path="/sign-in" element={<SignInPage />} />
+
+      {/* Public on purpose: someone has to be able to read what they are
+          agreeing to before they have an account, and a patient who has
+          closed theirs still needs the privacy policy. */}
+      <Route
+        path="/privacy"
+        element={
+          <Layout width="narrow">
+            <PrivacyPolicyPage />
+          </Layout>
+        }
+      />
+      <Route
+        path="/terms"
+        element={
+          <Layout width="narrow">
+            <TermsPage />
+          </Layout>
+        }
+      />
+      <Route
+        path="/cookies"
+        element={
+          <Layout width="narrow">
+            <CookiePolicyPage />
+          </Layout>
+        }
+      />
       <Route
         path="/register"
         element={

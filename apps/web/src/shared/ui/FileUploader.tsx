@@ -115,7 +115,8 @@ export function FileUploader({ onChange, accept, error }: FileUploaderProps) {
             ? "border-primary bg-primary-soft/40"
             : message
               ? "border-danger bg-danger-soft/40"
-              : "border-line bg-surface-low"
+              : // line-strong, per the control-boundary rule in Field.tsx.
+                "border-line-strong bg-surface-low"
         }`}
       >
         {previewUrl ? (

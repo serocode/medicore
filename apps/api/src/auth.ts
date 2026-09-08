@@ -1,3 +1,4 @@
+import { DEMO_OTP } from "@healthcare/dal";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins";
@@ -99,6 +100,11 @@ export const auth = betterAuth({
       // sending it, so the two have to agree. Keep OTP_VALIDITY_MS in
       // apps/web/src/features/auth/pages/SignInPage.tsx in step with any change here.
       expiresIn: 300,
+      // Demo mode swaps the random code for a fixed, published one so the app
+      // can be demonstrated without an inbox — the verification step itself is
+      // untouched, so every other part of the flow behaves exactly as it does
+      // in production. env.ts refuses to let DEMO_MODE be set there.
+      ...(env.DEMO_MODE ? { generateOTP: () => DEMO_OTP } : {}),
       async sendVerificationOTP({ email, otp }) {
         await sendOtpEmail(email, otp);
       },

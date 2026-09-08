@@ -27,17 +27,24 @@ interface AvatarProps {
   size?: number;
 }
 
+/**
+ * Decorative by design. Every call site in the product renders the person's
+ * name in text right beside the avatar, so an `alt` of the name — or letting
+ * a reader spell out the initials — announces it twice. `name` is an input to
+ * the picture, not a label for it.
+ */
 export function Avatar({ name, imageUrl, size = 32 }: AvatarProps) {
   const style = { width: size, height: size };
 
   if (imageUrl) {
     return (
-      <img src={imageUrl} alt={name} style={style} className="shrink-0 rounded-full object-cover" />
+      <img src={imageUrl} alt="" style={style} className="shrink-0 rounded-full object-cover" />
     );
   }
 
   return (
     <span
+      aria-hidden="true"
       style={style}
       className={`flex shrink-0 items-center justify-center rounded-full font-display text-xs font-semibold ${colorFor(name)}`}
     >

@@ -5,6 +5,7 @@ import { usePatientName } from "@/features/patients/hooks/use-patient-name";
 import { useStaffProfile } from "@/features/staff/hooks/use-staff-profile";
 import { apiFetch } from "@/shared/lib/api-client";
 import type { LabResult, LabResultParameter } from "@/shared/lib/types";
+import { useDocumentTitle } from "@/shared/lib/use-document-title";
 import { Breadcrumbs } from "@/shared/ui/Breadcrumbs";
 import { Button } from "@/shared/ui/Button";
 import { Field, Textarea } from "@/shared/ui/Field";
@@ -30,6 +31,7 @@ export function LabResultDetailPage() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [actionError, setActionError] = useState<string | undefined>(undefined);
+  useDocumentTitle(detail?.labResult.testName);
 
   const load = useCallback(() => {
     if (!patientId || !labResultId) return;

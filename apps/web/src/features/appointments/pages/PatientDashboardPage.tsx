@@ -125,6 +125,7 @@ export function PatientDashboardPage() {
                     <Button
                       variant="secondary"
                       size="sm"
+                      aria-label={`Cancel your appointment with ${appointment.doctorName}`}
                       onClick={() => setCancellingId(appointment.id)}
                     >
                       Cancel

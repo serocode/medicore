@@ -12,6 +12,7 @@
     "db:generate": "pnpm build && drizzle-kit generate",
     "db:migrate": "tsx src/migrate.ts",
     "db:seed": "tsx src/seed.ts",
+    "db:seed:demo": "tsx src/seed-demo.ts",
     "db:studio": "drizzle-kit studio",
     "test": "vitest run"
   },

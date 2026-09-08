@@ -1,12 +1,8 @@
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { createDbClient } from "./client.js";
+import { resolveDatabaseUrl } from "./seed-env.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required to run migrations");
-}
-
-const db = createDbClient(databaseUrl);
+const db = createDbClient(resolveDatabaseUrl());
 
 await migrate(db, { migrationsFolder: new URL("../drizzle", import.meta.url).pathname });
 

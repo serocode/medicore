@@ -18,6 +18,7 @@
     "db:generate": "pnpm --filter @healthcare/dal db:generate",
     "db:migrate": "pnpm --filter @healthcare/dal db:migrate",
     "db:seed": "pnpm --filter @healthcare/dal db:seed",
+    "db:seed:demo": "pnpm --filter @healthcare/dal db:seed:demo",
     "prepare": "husky"
   },
   "devDependencies": {

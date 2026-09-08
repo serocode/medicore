@@ -86,7 +86,7 @@ const PATIENT_GUIDE: RoleGuide = {
         },
         {
           title: "Give consent",
-          body: "All three consent checkboxes — treatment, disclosure of health information, and the privacy policy — must be ticked before the form will submit.",
+          body: "All three consent checkboxes — treatment, disclosure of health information to your care team, and having read the privacy, cookie, and terms documents — must be ticked before the form will submit. Each links to the document it refers to; the links open in a new tab so you don't lose what you have typed.",
         },
         {
           title: "Choose Complete registration",

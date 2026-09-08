@@ -11,6 +11,7 @@ import {
 import { apiFetch, apiFetchForm, applyApiErrorToForm } from "@/shared/lib/api-client";
 import { useSession } from "@/shared/lib/auth-client";
 import { MAX_LINE_TEXT } from "@/shared/lib/constants";
+import { useDocumentTitle } from "@/shared/lib/use-document-title";
 import { Button } from "@/shared/ui/Button";
 import { Field, RequiredLegend } from "@/shared/ui/Field";
 import { FileUploader } from "@/shared/ui/FileUploader";
@@ -18,7 +19,7 @@ import { StatusMessage } from "@/shared/ui/StatusMessage";
 import { UnsavedChangesGuard } from "@/shared/ui/UnsavedChangesGuard";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type FieldPath, useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -90,7 +91,10 @@ const STEPS = [
 }>;
 
 export function RegisterPatientPage() {
+  useDocumentTitle("Register");
   const navigate = useNavigate();
+  const stepHeadingRef = useRef<HTMLHeadingElement>(null);
+  const isFirstStepRender = useRef(true);
   const doctors = useDoctors();
   const { data: session } = useSession();
   const [stepIndex, setStepIndex] = useState(0);
@@ -145,6 +149,21 @@ export function RegisterPatientPage() {
 
   const step = STEPS[stepIndex];
   const isLastStep = stepIndex === STEPS.length - 1;
+
+  // Changing step swaps the whole panel out without moving the page or the
+  // caret, so a keyboard or screen-reader user was left focused on a button
+  // that had just been replaced, with no announcement of where they now were.
+  // Focusing the new step's heading puts them at the top of the content that
+  // changed — and makes the "we've taken you back" message actually land.
+  // Skipped on first render, which would otherwise steal focus on arrival.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the step index is the signal, not a value the effect reads.
+  useEffect(() => {
+    if (isFirstStepRender.current) {
+      isFirstStepRender.current = false;
+      return;
+    }
+    stepHeadingRef.current?.focus();
+  }, [stepIndex]);
 
   /**
    * Advance only when *this step's* fields are clean.
@@ -264,7 +283,12 @@ export function RegisterPatientPage() {
         className="flex flex-col gap-6"
       >
         <div className="rounded-card border border-line bg-white p-6 shadow-ambient sm:p-8">
-          <h2 className="text-headline-sm text-ink">{step?.title}</h2>
+          {/* tabIndex -1: focusable by script (see the effect above) but not
+              in the tab order. Programmatic focus doesn't match
+              :focus-visible, so no stray outline appears. */}
+          <h2 ref={stepHeadingRef} tabIndex={-1} className="text-headline-sm text-ink">
+            {step?.title}
+          </h2>
           <p className="mt-1 text-sm text-ink-muted">{step?.blurb}</p>
           <RequiredLegend className="mt-3" />
 

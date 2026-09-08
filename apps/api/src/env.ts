@@ -12,12 +12,25 @@ const envSchema = z.object({
   ADMIN_EMAILS: z.string().optional(),
   DOCTOR_EMAILS: z.string().optional(),
   NURSE_EMAILS: z.string().optional(),
+  // Demo mode: sign-in still goes through the normal email-OTP flow, but the
+  // code is the fixed DEMO_OTP instead of a random one — so a demo can be
+  // driven without an inbox. Refused outright in production below; this is a
+  // deliberate hole in the only authentication factor the app has.
+  DEMO_MODE: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   UPLOAD_DIR: z.string().default("./uploads"),
   MAX_UPLOAD_SIZE_MB: z.coerce.number().positive().default(5),
 });
 
 function loadEnv() {
-  const parsed = envSchema.safeParse(process.env);
+  const parsed = envSchema
+    .refine((env) => !(env.DEMO_MODE && env.NODE_ENV === "production"), {
+      message: "DEMO_MODE cannot be enabled in production — it makes every sign-in code guessable",
+      path: ["DEMO_MODE"],
+    })
+    .safeParse(process.env);
   if (!parsed.success) {
     console.error("Invalid environment configuration:", parsed.error.flatten().fieldErrors);
     throw new Error("Invalid environment configuration");

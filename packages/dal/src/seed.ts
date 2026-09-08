@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { createDbClient } from "./client.js";
 import { doctor } from "./schema/doctor.js";
 import { labTestCatalogItem } from "./schema/laboratory.js";
+import { resolveDatabaseUrl } from "./seed-env.js";
 
 const DOCTORS = [
   { name: "Dr. Alyana Cruz", specialization: "Family Medicine" },
@@ -30,12 +31,7 @@ const LAB_TEST_CATALOG: {
   { category: "imaging", name: "MRI" },
 ];
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required to seed the database");
-}
-
-const db = createDbClient(databaseUrl);
+const db = createDbClient(resolveDatabaseUrl());
 
 for (const entry of DOCTORS) {
   const [existing] = await db.select().from(doctor).where(eq(doctor.name, entry.name));

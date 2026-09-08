@@ -1,7 +1,10 @@
+import { useDocumentTitle } from "@/shared/lib/use-document-title";
 import { ButtonLink } from "@/shared/ui/Button";
 import { Logo } from "@/shared/ui/Logo";
 
 export function NotFoundPage() {
+  useDocumentTitle("Page not found");
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-surface px-6 py-12 text-center">
       <Logo size="md" />

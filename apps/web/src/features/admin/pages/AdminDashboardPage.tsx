@@ -196,6 +196,7 @@ export function AdminDashboardPage() {
                             {appointment.status === "pending" && (
                               <Button
                                 size="sm"
+                                aria-label={`Schedule ${displayName(appointment.patientName)}'s appointment`}
                                 onClick={() =>
                                   setActiveAction({ id: appointment.id, mode: "confirm" })
                                 }
@@ -207,6 +208,7 @@ export function AdminDashboardPage() {
                               <Button
                                 size="sm"
                                 variant="secondary"
+                                aria-label={`Cancel ${displayName(appointment.patientName)}'s appointment`}
                                 onClick={() =>
                                   setActiveAction({ id: appointment.id, mode: "cancel" })
                                 }

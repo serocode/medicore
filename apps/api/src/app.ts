@@ -9,6 +9,7 @@ import { mapErrorToResponse } from "./lib/http-errors.js";
 import { accountRoute } from "./routes/account.js";
 import { adminRoute } from "./routes/admin.js";
 import { appointmentsRoute } from "./routes/appointments.js";
+import { demoRoute } from "./routes/demo.js";
 import { doctorsRoute } from "./routes/doctors.js";
 import { encountersRoute } from "./routes/encounters.js";
 import { labResultsDashboardRoute, labResultsRoute } from "./routes/lab-results.js";
@@ -55,6 +56,7 @@ app.get("/ready", async (c) => {
 
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
+app.route("/api/demo", demoRoute);
 app.route("/api/doctors", doctorsRoute);
 app.route("/api/patients", patientsRoute);
 app.route("/api/patients", encountersRoute);

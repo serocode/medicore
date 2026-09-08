@@ -6,6 +6,7 @@ import { PatientHeader } from "@/features/patients/components/PatientHeader";
 import { apiFetch } from "@/shared/lib/api-client";
 import { displayName, formatBloodPressure, formatDate, formatVital } from "@/shared/lib/format";
 import type { Encounter, LabResult, Patient, VitalSign } from "@/shared/lib/types";
+import { useDocumentTitle } from "@/shared/lib/use-document-title";
 import { Breadcrumbs } from "@/shared/ui/Breadcrumbs";
 import { ButtonLink } from "@/shared/ui/Button";
 import { Card, CardBody } from "@/shared/ui/Card";
@@ -47,6 +48,7 @@ export function PatientClinicalRecordPage() {
   const [vitals, setVitals] = useState<VitalSign[] | null>(null);
   const [labResults, setLabResults] = useState<LabResult[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useDocumentTitle(name ? `${displayName(name)} — clinical record` : undefined);
 
   useEffect(() => {
     if (!patientId) return;

@@ -1,3 +1,4 @@
+import { useDocumentTitle } from "@/shared/lib/use-document-title";
 import { Breadcrumbs, type Crumb } from "@/shared/ui/Breadcrumbs";
 import type { ReactNode } from "react";
 
@@ -15,6 +16,10 @@ interface PageHeaderProps {
 
 /** Title + supporting line + actions. Every page in the product opens with one. */
 export function PageHeader({ title, description, actions, breadcrumbs }: PageHeaderProps) {
+  // The page's heading is also its name in the tab and in browser history —
+  // keeping the two in one place means they can never disagree.
+  useDocumentTitle(title);
+
   return (
     <div className="flex flex-col gap-3">
       {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}

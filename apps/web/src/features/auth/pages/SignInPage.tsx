@@ -1,11 +1,15 @@
 import { AuthLayout } from "@/features/auth/components/AuthLayout";
+import { DemoSignInPanel } from "@/features/auth/components/DemoSignInPanel";
+import { type DemoAccount, useDemoMode } from "@/features/auth/hooks/use-demo-mode";
+import { PolicyLink } from "@/features/legal/components/PolicyLink";
 import { authClient } from "@/shared/lib/auth-client";
+import { useDocumentTitle } from "@/shared/lib/use-document-title";
 import { Button } from "@/shared/ui/Button";
 import { Field, TextInput } from "@/shared/ui/Field";
 import { StatusMessage } from "@/shared/ui/StatusMessage";
 import { Mail, ShieldCheck } from "lucide-react";
-import { type FormEvent, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { Link, type NavigateFunction, useNavigate } from "react-router-dom";
 
 /** Must match `expiresIn` on the emailOTP plugin in apps/api/src/auth.ts. */
 const OTP_VALIDITY_MS = 5 * 60 * 1000;
@@ -57,8 +61,21 @@ function clearPendingOtp(): void {
   }
 }
 
+/** Where a role lands after signing in. One definition, three callers. */
+function goToRoleHome(navigate: NavigateFunction, role: string | undefined): void {
+  if (role === "admin") {
+    navigate("/admin");
+  } else if (role === "doctor" || role === "nurse") {
+    navigate("/staff/dashboard");
+  } else {
+    navigate("/dashboard");
+  }
+}
+
 export function SignInPage() {
   const navigate = useNavigate();
+  const demo = useDemoMode();
+  useDocumentTitle("Sign in");
   // Lazy initialisers so the restore runs once, before the first paint — no
   // flash of the email step on the way to the verification step.
   const [restored] = useState(readPendingOtp);
@@ -69,12 +86,20 @@ export function SignInPage() {
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+  const [demoPendingEmail, setDemoPendingEmail] = useState<string | null>(null);
 
   useEffect(() => {
     if (cooldown <= 0) return;
     const timer = setTimeout(() => setCooldown((seconds) => seconds - 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
+
+  // In demo mode the code is published, so typing it back in is ceremony.
+  // Functional update, and deliberately not keyed on `otp`: it fills an empty
+  // field once per step change rather than fighting anyone who clears it.
+  useEffect(() => {
+    if (step === "otp" && demo.otp) setOtp((current) => current || demo.otp || "");
+  }, [step, demo.otp]);
 
   async function sendCode(): Promise<boolean> {
     setError(undefined);
@@ -119,15 +144,49 @@ export function SignInPage() {
       return;
     }
     clearPendingOtp();
-    const role = (data?.user as { role?: string } | undefined)?.role;
-    if (role === "admin") {
-      navigate("/admin");
-    } else if (role === "doctor" || role === "nurse") {
-      navigate("/staff/dashboard");
-    } else {
-      navigate("/dashboard");
-    }
+    goToRoleHome(navigate, (data?.user as { role?: string } | undefined)?.role);
   }
+
+  // The demo shortcut: the same two calls the form makes, back to back, with
+  // the published code. Nothing is bypassed server-side — a failure here is a
+  // real sign-in failure and surfaces on the form like any other.
+  const handleDemoSignIn = useCallback(
+    async (entry: DemoAccount) => {
+      if (!demo.otp) return;
+      setError(undefined);
+      setNotice(undefined);
+      setEmail(entry.email);
+      setDemoPendingEmail(entry.email);
+
+      const { error: sendError } = await authClient.emailOtp.sendVerificationOtp({
+        email: entry.email,
+        type: "sign-in",
+      });
+      if (sendError) {
+        setDemoPendingEmail(null);
+        setError(sendError.message ?? "Couldn't send the demo sign-in code.");
+        return;
+      }
+
+      const { data, error: signInError } = await authClient.signIn.emailOtp({
+        email: entry.email,
+        otp: demo.otp,
+      });
+      setDemoPendingEmail(null);
+      if (signInError) {
+        // Fall back to the manual step rather than dead-ending — the code is
+        // on screen, so the user can still finish by hand.
+        writePendingOtp(entry.email);
+        setStep("otp");
+        setError(signInError.message ?? "The demo sign-in didn't go through. Try the code below.");
+        return;
+      }
+
+      clearPendingOtp();
+      goToRoleHome(navigate, (data?.user as { role?: string } | undefined)?.role);
+    },
+    [demo.otp, navigate],
+  );
 
   function useDifferentEmail() {
     clearPendingOtp();
@@ -146,6 +205,18 @@ export function SignInPage() {
           ? "Medicore has no passwords — enter your email and we'll send you a one-time code."
           : `We sent a code to ${email}. It's valid for five minutes.`}
       </p>
+
+      {demo.enabled && demo.otp && demo.accounts && demo.accounts.length > 0 && (
+        <DemoSignInPanel
+          accounts={demo.accounts}
+          otp={demo.otp}
+          onSignIn={(entry) => {
+            void handleDemoSignIn(entry);
+          }}
+          pendingEmail={demoPendingEmail}
+          disabled={isSubmitting || demoPendingEmail !== null}
+        />
+      )}
 
       {step === "email" ? (
         <form onSubmit={handleRequestOtp} className="flex flex-col gap-5">
@@ -213,6 +284,15 @@ export function SignInPage() {
           </div>
         </form>
       )}
+      {/* Signing in with an unknown address creates the account, so this is
+          the moment of agreement — it has to be stated here, not only on the
+          registration form that comes after it. */}
+      <p className="mt-8 border-t border-line pt-4 text-caption text-ink-subtle">
+        By signing in you accept Medicore's{" "}
+        <PolicyLink to="/terms">Terms and conditions</PolicyLink> and confirm you have read the{" "}
+        <PolicyLink to="/privacy">Privacy policy</PolicyLink> and{" "}
+        <PolicyLink to="/cookies">Cookie policy</PolicyLink>.
+      </p>
     </AuthLayout>
   );
 }

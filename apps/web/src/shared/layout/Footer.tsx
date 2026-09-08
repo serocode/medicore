@@ -1,3 +1,4 @@
+import { LEGAL_DOCUMENTS } from "@/features/legal/lib/legal-content";
 import { useSession } from "@/shared/lib/auth-client";
 import { clinicDateParts } from "@/shared/lib/timezone";
 import { Logo } from "@/shared/ui/Logo";
@@ -7,6 +8,10 @@ import { Link } from "react-router-dom";
  * Deliberately spare: Medicore has no marketing site, careers page, or social
  * accounts to link to, so this points only at routes that exist — and only at
  * the ones that mean anything to whoever is reading it.
+ *
+ * The legal documents are the exception to "only what's useful today": they
+ * belong on every page, signed in or out, because the footer is where people
+ * look for them.
  */
 export function Footer() {
   const { data: session } = useSession();
@@ -24,6 +29,17 @@ export function Footer() {
           </p>
         </div>
         <div className="flex flex-col gap-2 text-sm sm:items-end">
+          <nav aria-label="Policies" className="flex flex-wrap gap-x-4 gap-y-2 sm:justify-end">
+            {LEGAL_DOCUMENTS.map((entry) => (
+              <Link
+                key={entry.slug}
+                to={entry.path}
+                className="text-ink-muted underline-offset-4 hover:text-primary hover:underline"
+              >
+                {entry.title}
+              </Link>
+            ))}
+          </nav>
           {session && (
             <Link to="/help" className="text-ink-muted underline-offset-4 hover:underline">
               How Medicore works

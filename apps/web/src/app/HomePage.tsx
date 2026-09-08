@@ -291,7 +291,7 @@ export function HomePage() {
                   <ButtonLink
                     to="/sign-in"
                     size="lg"
-                    className="border border-primary-soft/40 bg-transparent text-on-inverse shadow-none hover:bg-primary-hover"
+                    className="border border-primary-soft/70 bg-transparent text-on-inverse shadow-none hover:bg-primary-hover"
                   >
                     I already have an account
                   </ButtonLink>

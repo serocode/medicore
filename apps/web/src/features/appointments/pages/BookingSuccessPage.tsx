@@ -2,6 +2,7 @@ import type { Doctor } from "@/features/appointments/hooks/use-doctors";
 import { formatDateTime } from "@/shared/lib/format";
 import { CLINIC_TIME_ZONE_LABEL } from "@/shared/lib/timezone";
 import type { Appointment } from "@/shared/lib/types";
+import { useDocumentTitle } from "@/shared/lib/use-document-title";
 import { Avatar } from "@/shared/ui/Avatar";
 import { ButtonLink } from "@/shared/ui/Button";
 import { Card } from "@/shared/ui/Card";
@@ -16,6 +17,7 @@ interface SuccessState {
 export function BookingSuccessPage() {
   const location = useLocation();
   const state = location.state as SuccessState | null;
+  useDocumentTitle("Request sent");
 
   if (!state?.appointment) {
     return <Navigate to="/dashboard" replace />;
