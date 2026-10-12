@@ -1,0 +1,121 @@
+services:
+  traefik:
+    image: traefik:v3.6
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      # The Docker provider sees every container on the host, not just this
+      # project's. Another stack on the same server (its own Traefik, its own
+      # `api`/`web` routers) would otherwise merge into this one: same-named
+      # routers are dropped as duplicates, and the rest point at containers on
+      # a network this Traefik cannot reach. Only containers carrying this
+      # project's label are picked up.
+      - --providers.docker.constraints=Label(`medicore.traefik`,`true`)
+      - --entrypoints.web.address=:80
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # The only way in: no service publishes a port. In the Cloudflare dashboard
+  # (Zero Trust → Networks → Tunnels → this tunnel → Public hostnames), route
+  # both API_DOMAIN and WEB_DOMAIN to http://traefik:80.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?Set TUNNEL_TOKEN in .env}
+    depends_on:
+      - traefik
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runner
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env}
+      # Derived from the hostnames Traefik routes, so the URLs the API trusts
+      # can't drift from the ones it's actually served on.
+      BETTER_AUTH_URL: https://${API_DOMAIN:?Set API_DOMAIN in .env}
+      WEB_ORIGIN: https://${WEB_DOMAIN:?Set WEB_DOMAIN in .env}
+      # Set by Cloudflare's edge to the real client IP; trustworthy because
+      # nothing reaches the API except through the tunnel. See env.ts.
+      CLIENT_IP_HEADER: cf-connecting-ip
+      # Required in production - email.ts refuses to log OTPs instead.
+      RESEND_API_KEY: ${RESEND_API_KEY:?Set RESEND_API_KEY in .env}
+      EMAIL_FROM: ${EMAIL_FROM:?Set EMAIL_FROM in .env}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      DOCTOR_EMAILS: ${DOCTOR_EMAILS:-}
+      NURSE_EMAILS: ${NURSE_EMAILS:-}
+      MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-5}
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # One replica: Better Auth's rate-limit counters live in process memory,
+    # so a second replica would double every OTP limit.
+    labels:
+      - traefik.enable=true
+      - medicore.traefik=true
+      - traefik.http.routers.medicore-api.rule=Host(`${API_DOMAIN:?Set API_DOMAIN in .env}`)
+      - traefik.http.routers.medicore-api.entrypoints=web
+      - traefik.http.services.medicore-api.loadbalancer.server.port=3000
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: https://${API_DOMAIN:?Set API_DOMAIN in .env}
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - medicore.traefik=true
+      - traefik.http.routers.medicore-web.rule=Host(`${WEB_DOMAIN:?Set WEB_DOMAIN in .env}`)
+      - traefik.http.routers.medicore-web.entrypoints=web
+      - traefik.http.services.medicore-web.loadbalancer.server.port=80
+
+  # One-off DAL scripts (db:migrate, db:seed), run by scripts/deploy.sh.
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: tools
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["pnpm", "--filter", "@healthcare/dal"]
+    command: ["db:migrate"]
+    profiles: ["tools"]
+
+volumes:
+  postgres-data:
+  uploads:

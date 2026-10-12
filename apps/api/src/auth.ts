@@ -27,6 +27,9 @@ export const auth = betterAuth({
       "/sign-in/email-otp": { window: 60, max: 5 },
     },
   },
+  ...(env.CLIENT_IP_HEADER
+    ? { advanced: { ipAddress: { ipAddressHeaders: [env.CLIENT_IP_HEADER] } } }
+    : {}),
   user: {
     additionalFields: {
       // Server-assigned only — never accept a client-supplied role.

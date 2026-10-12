@@ -15,6 +15,9 @@ apps/api/uploads-test/
 uploads/
 uploads-test/
 
+# Database dumps from scripts/deploy.sh backup — real patient data.
+backups/
+
 *.log
 npm-debug.log*
 pnpm-debug.log*

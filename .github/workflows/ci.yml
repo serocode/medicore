@@ -60,5 +60,7 @@ jobs:
       - name: Test
         run: pnpm turbo test
 
-      - name: Build Docker image
-        run: docker build -f apps/api/Dockerfile -t healthcare-api:${{ github.sha }} .
+      - name: Build Docker images
+        run: |
+          docker build -f apps/api/Dockerfile -t healthcare-api:${{ github.sha }} .
+          docker build -f apps/web/Dockerfile --build-arg VITE_API_URL=https://api.example.com -t healthcare-web:${{ github.sha }} .

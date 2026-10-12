@@ -20,6 +20,13 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
+  // The single-value header a trusted proxy sets to the client's IP, used to
+  // key Better Auth's rate limits. Unset, it reads X-Forwarded-For — which
+  // behind Cloudflare Tunnel + Traefik carries two hops, so Better Auth can't
+  // resolve an IP and every client shares one bucket. Production sets
+  // "cf-connecting-ip" (see docker-compose.prod.yml). Only set this when the
+  // API is unreachable except through that proxy, or the header is spoofable.
+  CLIENT_IP_HEADER: z.string().optional(),
   UPLOAD_DIR: z.string().default("./uploads"),
   MAX_UPLOAD_SIZE_MB: z.coerce.number().positive().default(5),
 });
