@@ -95,12 +95,15 @@ export function StaffManagementSection() {
     setInviteError(undefined);
     setIsInviting(true);
     try {
-      await apiFetch("/api/admin/invites", {
+      const { emailSent } = await apiFetch<{ emailSent: boolean }>("/api/admin/invites", {
         method: "POST",
         body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
       });
+      const role = ROLE_LABELS[inviteRole].toLowerCase();
       setNotice(
-        `${inviteEmail} will be a ${ROLE_LABELS[inviteRole].toLowerCase()} the next time they sign in.`,
+        emailSent
+          ? `Invitation sent to ${inviteEmail}. They'll be a ${role} the first time they sign in.`
+          : `${inviteEmail} will be a ${role} the first time they sign in, but the invitation email couldn't be sent — let them know to sign in.`,
       );
       setInviteEmail("");
       setIsInviteOpen(false);
@@ -332,7 +335,7 @@ export function StaffManagementSection() {
       {isInviteOpen && (
         <Modal
           title="Invite a colleague"
-          description="Grants a role to an email address. It applies the next time that person signs in — Medicore doesn't send the invitation itself."
+          description="Emails them an invitation to sign in. The role applies the first time they do."
           onClose={() => setIsInviteOpen(false)}
         >
           <form onSubmit={sendInvite} className="flex flex-col gap-5">

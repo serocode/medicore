@@ -388,7 +388,7 @@ const ADMIN_GUIDE: RoleGuide = {
       steps: [
         {
           title: "Invite a colleague",
-          body: "Choose Invite staff, give their email address and the role they should have. Medicore does not send the invitation — tell them to sign in, and the role applies the first time they do.",
+          body: "Choose Invite staff, give their email address and the role they should have. Medicore emails them a link to sign in, and the role applies the first time they do. If the email can't be sent you'll be told — the invite still stands, so just tell them to sign in.",
         },
         {
           title: "Change someone's role",
