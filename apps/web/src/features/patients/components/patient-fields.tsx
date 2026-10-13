@@ -30,6 +30,7 @@ const looksLikePhone = (value: string) =>
   (value.match(/\d/g)?.length ?? 0) >= 7;
 
 const line = z.string().min(1, "Required").max(MAX_LINE_TEXT, "That's too long");
+const optionalLine = z.string().max(MAX_LINE_TEXT, "That's too long").optional();
 const notes = z.string().max(MAX_CLINICAL_TEXT, "That's too long").optional();
 
 export const patientDetailsSchema = z.object({
@@ -43,15 +44,17 @@ export const patientDetailsSchema = z.object({
     .min(1, "Required")
     .max(40, "That's too long")
     .refine(looksLikePhone, "Enter a contactable phone number, including at least 7 digits"),
-  primaryPhysicianId: z.string().min(1, "Select a physician"),
+  // Optional, like identification below — registration skips both, and the
+  // patient fills them in from their account page.
+  primaryPhysicianId: z.string().optional(),
   insuranceProvider: notes,
   insurancePolicyNumber: notes,
   allergies: notes,
   currentMedications: notes,
   familyMedicalHistory: notes,
   pastMedicalHistory: notes,
-  identificationType: line,
-  identificationNumber: line,
+  identificationType: optionalLine,
+  identificationNumber: optionalLine,
   consentTreatment: z.boolean().refine((v) => v, { message: "Required" }),
   consentDisclosure: z.boolean().refine((v) => v, { message: "Required" }),
   consentPrivacy: z.boolean().refine((v) => v, { message: "Required" }),
@@ -151,8 +154,8 @@ export function MedicalInformationFields({
       <Field
         label="Primary physician"
         htmlFor="primaryPhysicianId"
+        hint="Optional"
         error={errors.primaryPhysicianId?.message}
-        required
       >
         <Select id="primaryPhysicianId" {...field("primaryPhysicianId")}>
           <option value="">
@@ -200,8 +203,8 @@ export function IdentificationFields({ register, errors }: GroupProps) {
       <Field
         label="Identification type"
         htmlFor="identificationType"
+        hint="Optional"
         error={errors.identificationType?.message}
-        required
       >
         <Select id="identificationType" icon={ShieldCheck} {...field("identificationType")}>
           <option value="">Select ID type</option>
@@ -215,8 +218,8 @@ export function IdentificationFields({ register, errors }: GroupProps) {
       <Field
         label="Identification number"
         htmlFor="identificationNumber"
+        hint="Optional"
         error={errors.identificationNumber?.message}
-        required
       >
         <TextInput id="identificationNumber" icon={FileText} {...field("identificationNumber")} />
       </Field>

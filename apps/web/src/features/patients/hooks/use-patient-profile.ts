@@ -1,4 +1,4 @@
-import { ApiError, apiFetch } from "@/shared/lib/api-client";
+import { apiFetch } from "@/shared/lib/api-client";
 import type { Patient } from "@/shared/lib/types";
 import { useCallback, useEffect, useState } from "react";
 
@@ -12,8 +12,8 @@ interface PatientProfileState {
 interface UsePatientProfileOptions {
   /**
    * Skip the request entirely. Staff and administrators have no patient
-   * record, so fetching one for them is a guaranteed 404 on every page load —
-   * noise in the console and a wasted round trip.
+   * record, so fetching one for them is a guaranteed empty answer on every
+   * page load — a wasted round trip.
    */
   enabled?: boolean;
 }
@@ -31,8 +31,9 @@ interface InternalState {
   settledFor: boolean | null;
 }
 
-// A 404 means "not registered yet" — an expected state for a logged-in
-// patient, not a failure — so it resolves to `data: null`, not `error`.
+// `data: null` means "not registered yet" — an expected state for a
+// logged-in patient, not a failure — so the API answers it with
+// `{ patient: null }` rather than an error.
 export function usePatientProfile({
   enabled = true,
 }: UsePatientProfileOptions = {}): PatientProfileState {
@@ -50,16 +51,12 @@ export function usePatientProfile({
 
     let cancelled = false;
 
-    apiFetch<{ patient: Patient }>("/api/patients/me")
+    apiFetch<{ patient: Patient | null }>("/api/patients/me")
       .then((result) => {
         if (!cancelled) setState({ data: result.patient, error: null, settledFor: true });
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        if (error instanceof ApiError && error.status === 404) {
-          setState({ data: null, error: null, settledFor: true });
-          return;
-        }
         setState({
           data: null,
           error: error instanceof Error ? error.message : "Failed to load profile",

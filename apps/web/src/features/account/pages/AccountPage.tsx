@@ -197,7 +197,7 @@ export function AccountPage() {
         <Card>
           <CardHeader
             title="Identification"
-            description="The ID on file. To replace the scanned document itself, contact the clinic."
+            description="Optional. To add or replace a scanned copy of your ID, contact the clinic."
           />
           <CardBody className="flex flex-col gap-4">
             <IdentificationFields register={register as never} errors={errors} />

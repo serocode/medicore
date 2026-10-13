@@ -33,7 +33,8 @@ const rgb = (hex) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 1
 const color = (name) => (name === "white" ? [255, 255, 255] : rgb(tokens[name]));
 
 /** `layer` at `alpha` composited over `base`. */
-const over = (layer, base, alpha) => layer.map((c, i) => Math.round(c * alpha + base[i] * (1 - alpha)));
+const over = (layer, base, alpha) =>
+  layer.map((c, i) => Math.round(c * alpha + base[i] * (1 - alpha)));
 
 const channel = (c) => (c / 255 <= 0.03928 ? c / 255 / 12.92 : ((c / 255 + 0.055) / 1.055) ** 2.4);
 const luminance = ([r, g, b]) => 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
@@ -96,10 +97,46 @@ const PAIRS = [
  */
 const COMPOSITES = [
   ["on-accent-soft", [["accent-soft", 0.4]], "surface", 4.5, "demo panel text"],
-  ["ink", [["white", 0.8], ["accent-soft", 0.4]], "surface", 4.5, "demo account name"],
-  ["ink-muted", [["white", 0.8], ["accent-soft", 0.4]], "surface", 4.5, "demo account headline"],
-  ["ink-subtle", [["white", 0.8], ["accent-soft", 0.4]], "surface", 4.5, "demo account role"],
-  ["accent", [["white", 0.8], ["accent-soft", 0.4]], "surface", 3.0, "demo role icon [non-text]"],
+  [
+    "ink",
+    [
+      ["white", 0.8],
+      ["accent-soft", 0.4],
+    ],
+    "surface",
+    4.5,
+    "demo account name",
+  ],
+  [
+    "ink-muted",
+    [
+      ["white", 0.8],
+      ["accent-soft", 0.4],
+    ],
+    "surface",
+    4.5,
+    "demo account headline",
+  ],
+  [
+    "ink-subtle",
+    [
+      ["white", 0.8],
+      ["accent-soft", 0.4],
+    ],
+    "surface",
+    4.5,
+    "demo account role",
+  ],
+  [
+    "accent",
+    [
+      ["white", 0.8],
+      ["accent-soft", 0.4],
+    ],
+    "surface",
+    3.0,
+    "demo role icon [non-text]",
+  ],
   ["on-primary-soft", [["primary-soft", 0.5]], "white", 4.5, "success message on a card"],
   ["on-primary-soft", [["primary-soft", 0.5]], "surface", 4.5, "success message on the page"],
   ["on-accent-soft", [["accent-soft", 0.6]], "white", 4.5, "info message on a card"],
@@ -128,7 +165,8 @@ for (const [fg, bg, minimum, where] of PAIRS) {
 
 for (const [fg, alpha, bg, minimum, where] of FADED_FOREGROUNDS) {
   const ratio = contrast(over(color(fg), color(bg), alpha), color(bg));
-  if (ratio < minimum) failures.push({ what: `${fg}/${alpha * 100} on ${bg}`, ratio, minimum, where });
+  if (ratio < minimum)
+    failures.push({ what: `${fg}/${alpha * 100} on ${bg}`, ratio, minimum, where });
   report.push([ratio, minimum, `${fg}/${alpha * 100} on ${bg}`, where]);
 }
 

@@ -1,5 +1,5 @@
 import { truncateAll } from "@healthcare/dal/src/test-utils/test-db.js";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { app } from "../app.js";
 import { db } from "../db.js";
 import {
@@ -148,6 +148,35 @@ describe("POST /api/admin/invites and sign-in role assignment", () => {
       await app.request("/api/admin/staff", { headers: { Cookie: adminCookie } }),
     );
     expect(overviewAfter.pendingInvites.some((i) => i.email === email)).toBe(false);
+  });
+
+  it("emails the invitation to the invited address", async () => {
+    const adminCookie = await signInAsAdmin(app);
+    const email = "invited-doctor@example.com";
+
+    // No RESEND_API_KEY under test, so the email goes to the dev console
+    // fallback — the same channel the sign-in helpers read OTPs from.
+    const logs: string[] = [];
+    const log = vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
+      logs.push(args.map(String).join(" "));
+    });
+    let res: Response;
+    try {
+      res = await app.request("/api/admin/invites", {
+        method: "POST",
+        headers: { Cookie: adminCookie, "Content-Type": "application/json" },
+        body: JSON.stringify({ email, role: "doctor" }),
+      });
+    } finally {
+      log.mockRestore();
+    }
+
+    expect(res.status).toBe(201);
+    expect((await readJson<{ emailSent: boolean }>(res)).emailSent).toBe(true);
+    const sent = logs.find((line) => line.includes(`To ${email}`));
+    expect(sent).toContain("You've been invited to Medicore");
+    expect(sent).toContain("as a doctor");
+    expect(sent).toContain("/sign-in");
   });
 
   it("rejects a non-admin sending an invite", async () => {

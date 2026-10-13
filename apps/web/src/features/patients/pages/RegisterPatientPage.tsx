@@ -1,10 +1,7 @@
-import { useDoctors } from "@/features/appointments/hooks/use-doctors";
 import { NameFields } from "@/features/patients/components/NameFields";
 import {
   ConsentFields,
   EmergencyContactFields,
-  IdentificationFields,
-  MedicalInformationFields,
   PersonalDetailsFields,
   patientDetailsSchema,
 } from "@/features/patients/components/patient-fields";
@@ -13,8 +10,7 @@ import { useSession } from "@/shared/lib/auth-client";
 import { MAX_LINE_TEXT } from "@/shared/lib/constants";
 import { useDocumentTitle } from "@/shared/lib/use-document-title";
 import { Button } from "@/shared/ui/Button";
-import { Field, RequiredLegend } from "@/shared/ui/Field";
-import { FileUploader } from "@/shared/ui/FileUploader";
+import { RequiredLegend } from "@/shared/ui/Field";
 import { StatusMessage } from "@/shared/ui/StatusMessage";
 import { UnsavedChangesGuard } from "@/shared/ui/UnsavedChangesGuard";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,7 +27,22 @@ const nameSchema = z.object({
   suffix: z.string().optional(),
 });
 
-const registerSchema = nameSchema.extend(patientDetailsSchema.shape);
+// Only what the clinic can't do without. Physician, insurance, medical history
+// and identification are all optional on the record and live on the account
+// page, where the patient can add them once they're signed up.
+const registerSchema = nameSchema.extend(
+  patientDetailsSchema.pick({
+    birthDate: true,
+    gender: true,
+    address: true,
+    occupation: true,
+    emergencyContactName: true,
+    emergencyContactPhone: true,
+    consentTreatment: true,
+    consentDisclosure: true,
+    consentPrivacy: true,
+  }).shape,
+);
 type RegisterValues = z.infer<typeof registerSchema>;
 
 /**
@@ -39,11 +50,10 @@ type RegisterValues = z.infer<typeof registerSchema>;
  *
  * A note on what this page is: the *account* already exists by the time
  * someone arrives here — Medicore has no passwords, and signing in with a
- * one-time code is what creates it. This step captures the clinical intake the
- * clinic needs before a first visit. Every field the record requires is
- * genuinely required (an emergency contact is not optional in a clinic), so
- * rather than trimming the form, it is broken into three short steps that each
- * ask one kind of question.
+ * one-time code is what creates it. This step captures the minimum the clinic
+ * needs before a first visit — who you are, someone to call in an emergency,
+ * and consent to treatment — in two short steps. Everything else is optional
+ * and is added later from the account page.
  */
 const STEPS = [
   {
@@ -64,24 +74,10 @@ const STEPS = [
     ],
   },
   {
-    id: "medical",
-    title: "Medical details",
-    blurb: "Your physician, cover, and anything your care team should know.",
-    fields: [
-      "primaryPhysicianId",
-      "insuranceProvider",
-      "insurancePolicyNumber",
-      "allergies",
-      "currentMedications",
-      "familyMedicalHistory",
-      "pastMedicalHistory",
-    ],
-  },
-  {
-    id: "verify",
-    title: "Identity and consent",
-    blurb: "Proof of identity, and your agreement to be treated.",
-    fields: ["identificationType", "identificationNumber"],
+    id: "consent",
+    title: "Consent",
+    blurb: "Your agreement to be treated, and to how your information is handled.",
+    fields: ["consentTreatment", "consentDisclosure", "consentPrivacy"],
   },
 ] as const satisfies ReadonlyArray<{
   id: string;
@@ -95,11 +91,8 @@ export function RegisterPatientPage() {
   const navigate = useNavigate();
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const isFirstStepRender = useRef(true);
-  const doctors = useDoctors();
   const { data: session } = useSession();
   const [stepIndex, setStepIndex] = useState(0);
-  const [file, setFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string | undefined>(undefined);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
   // Set once the record is safely saved. Navigating straight from inside the
   // submit handler ran while the form was still dirty and `isSubmitSuccessful`
@@ -132,15 +125,6 @@ export function RegisterPatientPage() {
       occupation: "",
       emergencyContactName: "",
       emergencyContactPhone: "",
-      primaryPhysicianId: "",
-      insuranceProvider: "",
-      insurancePolicyNumber: "",
-      allergies: "",
-      currentMedications: "",
-      familyMedicalHistory: "",
-      pastMedicalHistory: "",
-      identificationType: "",
-      identificationNumber: "",
       consentTreatment: false,
       consentDisclosure: false,
       consentPrivacy: false,
@@ -188,11 +172,6 @@ export function RegisterPatientPage() {
 
   async function submit(values: RegisterValues) {
     setSubmitError(undefined);
-    if (!file) {
-      setFileError("Please upload a copy of your ID");
-      return;
-    }
-    setFileError(undefined);
 
     try {
       // Name first: it lives on the account, not the patient record, and is
@@ -212,7 +191,6 @@ export function RegisterPatientPage() {
         if (["firstName", "middleName", "lastName", "suffix"].includes(key)) continue;
         formData.append(key, typeof value === "boolean" ? String(value) : (value ?? ""));
       }
-      formData.append("identificationDocument", file);
       await apiFetchForm("/api/patients/register", formData);
 
       setIsRegistered(true);
@@ -233,7 +211,8 @@ export function RegisterPatientPage() {
         <h1 className="mt-3 text-headline-lg text-ink">Let's get you registered</h1>
         <p className="mx-auto mt-3 max-w-md text-ink-muted">
           Signed in as {session?.user.email}. Your care team needs a few details before your first
-          visit — it takes about three minutes.
+          visit — it takes about a minute. Medical history, insurance, and ID can be added later
+          from your account.
         </p>
       </header>
 
@@ -305,39 +284,10 @@ export function RegisterPatientPage() {
               </>
             )}
 
-            {stepIndex === 1 && (
-              <MedicalInformationFields
-                register={register as never}
-                errors={errors}
-                doctors={doctors}
-              />
-            )}
-
-            {stepIndex === 2 && (
-              <>
-                <IdentificationFields register={register as never} errors={errors} />
-                <Field
-                  label="Scanned copy of your identification"
-                  htmlFor="identificationDocument"
-                  hint="JPEG, PNG, or PDF, up to 5 MB."
-                  error={fileError}
-                  required
-                >
-                  <FileUploader accept="image/jpeg,image/png,application/pdf" onChange={setFile} />
-                </Field>
-                <div className="border-t border-line pt-6">
-                  <h3 className="font-display font-semibold text-ink">Consent</h3>
-                  <p className="mb-3 mt-1 text-sm text-ink-muted">
-                    All three are required before the clinic can treat you.
-                  </p>
-                  <ConsentFields register={register as never} errors={errors} />
-                </div>
-              </>
-            )}
+            {stepIndex === 1 && <ConsentFields register={register as never} errors={errors} />}
           </div>
         </div>
 
-        {doctors.error && <StatusMessage tone="error">{doctors.error}</StatusMessage>}
         {submitError && <StatusMessage tone="error">{submitError}</StatusMessage>}
 
         <div className="flex items-center justify-between gap-3">

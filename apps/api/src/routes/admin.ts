@@ -8,6 +8,7 @@ import {
 } from "@healthcare/application";
 import { Hono } from "hono";
 import { z } from "zod";
+import { sendStaffInviteEmail } from "../email.js";
 import { requireAdmin } from "../middleware/require-admin.js";
 import type { AuthVariables } from "../middleware/require-auth.js";
 import { requireAuth } from "../middleware/require-auth.js";
@@ -68,7 +69,18 @@ adminRoute.post("/invites", async (c) => {
     { accounts: staffAccountRepository },
   );
 
-  return c.json({ invite }, 201);
+  // Best-effort, like appointment notifications: the invite is already saved
+  // and works without the email (the role applies whenever that address signs
+  // in), so a delivery failure is reported back rather than undoing it.
+  let emailSent = true;
+  try {
+    await sendStaffInviteEmail(invite.email, invite.role);
+  } catch (error) {
+    console.error("Failed to send staff invite email:", error);
+    emailSent = false;
+  }
+
+  return c.json({ invite, emailSent }, 201);
 });
 
 adminRoute.delete("/invites/:email", async (c) => {

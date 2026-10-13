@@ -16,17 +16,20 @@ export const patient = pgTable("patient", {
   occupation: text("occupation").notNull(),
   emergencyContactName: text("emergency_contact_name").notNull(),
   emergencyContactPhone: text("emergency_contact_phone").notNull(),
-  primaryPhysicianId: uuid("primary_physician_id")
-    .notNull()
-    .references(() => doctor.id, { onDelete: "restrict" }),
+  // Nullable, along with the identification columns below: registration asks
+  // only for personal details, an emergency contact, and consent. The patient
+  // can add the rest from their account page whenever they're ready.
+  primaryPhysicianId: uuid("primary_physician_id").references(() => doctor.id, {
+    onDelete: "restrict",
+  }),
   insuranceProvider: text("insurance_provider"),
   insurancePolicyNumber: text("insurance_policy_number"),
   allergies: text("allergies"),
   currentMedications: text("current_medications"),
   familyMedicalHistory: text("family_medical_history"),
   pastMedicalHistory: text("past_medical_history"),
-  identificationType: text("identification_type").notNull(),
-  identificationNumber: text("identification_number").notNull(),
+  identificationType: text("identification_type"),
+  identificationNumber: text("identification_number"),
   identificationDocumentPath: text("identification_document_path"),
   bloodType: text("blood_type"),
   consentTreatment: boolean("consent_treatment").notNull(),

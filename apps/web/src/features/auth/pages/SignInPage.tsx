@@ -2,7 +2,7 @@ import { AuthLayout } from "@/features/auth/components/AuthLayout";
 import { DemoSignInPanel } from "@/features/auth/components/DemoSignInPanel";
 import { type DemoAccount, useDemoMode } from "@/features/auth/hooks/use-demo-mode";
 import { PolicyLink } from "@/features/legal/components/PolicyLink";
-import { authClient } from "@/shared/lib/auth-client";
+import { authClient, useSession } from "@/shared/lib/auth-client";
 import { useDocumentTitle } from "@/shared/lib/use-document-title";
 import { Button } from "@/shared/ui/Button";
 import { Field, TextInput } from "@/shared/ui/Field";
@@ -75,6 +75,7 @@ function goToRoleHome(navigate: NavigateFunction, role: string | undefined): voi
 export function SignInPage() {
   const navigate = useNavigate();
   const demo = useDemoMode();
+  const { refetch: refetchSession } = useSession();
   useDocumentTitle("Sign in");
   // Lazy initialisers so the restore runs once, before the first paint — no
   // flash of the email step on the way to the verification step.
@@ -136,14 +137,18 @@ export function SignInPage() {
     setNotice(undefined);
     setIsSubmitting(true);
     const { data, error: signInError } = await authClient.signIn.emailOtp({ email, otp });
-    setIsSubmitting(false);
     if (signInError) {
+      setIsSubmitting(false);
       setError(
         signInError.message ?? "That code didn't work. It may have expired — send a new one.",
       );
       return;
     }
     clearPendingOtp();
+    // Better Auth only refreshes `useSession` on a 10ms timer after sign-in.
+    // Navigating before then lets the route guard read the old signed-out
+    // session and bounce straight back here, so wait for the new one.
+    await refetchSession();
     goToRoleHome(navigate, (data?.user as { role?: string } | undefined)?.role);
   }
 
@@ -172,8 +177,8 @@ export function SignInPage() {
         email: entry.email,
         otp: demo.otp,
       });
-      setDemoPendingEmail(null);
       if (signInError) {
+        setDemoPendingEmail(null);
         // Fall back to the manual step rather than dead-ending — the code is
         // on screen, so the user can still finish by hand.
         writePendingOtp(entry.email);
@@ -183,9 +188,10 @@ export function SignInPage() {
       }
 
       clearPendingOtp();
+      await refetchSession();
       goToRoleHome(navigate, (data?.user as { role?: string } | undefined)?.role);
     },
-    [demo.otp, navigate],
+    [demo.otp, navigate, refetchSession],
   );
 
   function useDifferentEmail() {
