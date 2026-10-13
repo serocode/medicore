@@ -35,6 +35,42 @@ describe("POST /api/patients/register", () => {
     expect(body.patient.identificationDocumentPath).toMatch(/\.pdf$/);
   });
 
+  it("registers with only personal details, an emergency contact, and consent", async () => {
+    const cookie = await signInAsPatient(app, "register-minimal@example.com");
+    const formData = new FormData();
+    for (const [key, value] of Object.entries({
+      birthDate: "1990-01-01",
+      gender: "other",
+      address: "1 Test St",
+      occupation: "Tester",
+      emergencyContactName: "Emergency Contact",
+      emergencyContactPhone: "555-0000",
+      consentTreatment: "true",
+      consentDisclosure: "true",
+      consentPrivacy: "true",
+    })) {
+      formData.append(key, value);
+    }
+
+    const res = await app.request("/api/patients/register", {
+      method: "POST",
+      headers: { Cookie: cookie },
+      body: formData,
+    });
+
+    expect(res.status).toBe(201);
+    const { patient } = await readJson<{
+      patient: {
+        primaryPhysicianId: string | null;
+        identificationType: string | null;
+        identificationDocumentPath: string | null;
+      };
+    }>(res);
+    expect(patient.primaryPhysicianId).toBeNull();
+    expect(patient.identificationType).toBeNull();
+    expect(patient.identificationDocumentPath).toBeNull();
+  });
+
   it("rejects a second registration for the same user", async () => {
     const cookie = await signInAsPatient(app, "dup-test@example.com");
     await registerTestPatient(app, { cookie, doctorId });

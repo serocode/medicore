@@ -77,12 +77,8 @@ const PATIENT_GUIDE: RoleGuide = {
         "Before you can book, Medicore needs a profile. You are sent to the registration form automatically the first time you sign in.",
       steps: [
         {
-          title: "Fill in your details",
-          body: "Personal information, an emergency contact, your medical information, and identification. Fields marked with a red asterisk are required; the rest can be left blank and added later.",
-        },
-        {
-          title: "Upload your identification",
-          body: "A JPEG, PNG, or PDF up to 5 MB. You can click the box or drag a file onto it. Anything larger, or of another type, is refused straight away with the reason.",
+          title: "Tell us about you",
+          body: "Your name, date of birth, gender, address, occupation, and an emergency contact. Fields marked with a red asterisk are required.",
         },
         {
           title: "Give consent",
@@ -90,7 +86,7 @@ const PATIENT_GUIDE: RoleGuide = {
         },
         {
           title: "Choose Complete registration",
-          body: "You are taken to the booking form. Your details can be changed at any time from Account.",
+          body: "You are taken to the booking form. Your primary physician, insurance, medical history, and identification can be added from Account whenever you're ready, and everything else changed there at any time.",
         },
       ],
     },

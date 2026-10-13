@@ -29,9 +29,16 @@ const booleanFromString = z.preprocess((value) => value === "true" || value === 
 const MAX_TEXT = 5000;
 const MAX_LINE = 200;
 
+const blankToUndefined = (value: unknown) => (value === "" ? undefined : value);
+
 const optionalText = z.preprocess(
-  (value) => (value === "" ? undefined : value),
+  blankToUndefined,
   z.string().max(MAX_TEXT, `Must be ${MAX_TEXT} characters or fewer`).optional(),
+);
+
+const optionalLine = z.preprocess(
+  blankToUndefined,
+  z.string().max(MAX_LINE, `Must be ${MAX_LINE} characters or fewer`).optional(),
 );
 
 // The clinic is in Manila (UTC+8) and a birth date arrives as a bare
@@ -66,15 +73,18 @@ const patientProfileSchema = z.object({
     .min(1)
     .max(40)
     .refine(looksLikePhone, "Enter a contactable phone number, including at least 7 digits"),
-  primaryPhysicianId: z.string().uuid(),
+  // Physician and identification are optional: registration asks only for
+  // personal details, an emergency contact, and consent, and the patient adds
+  // the rest from their account page.
+  primaryPhysicianId: z.preprocess(blankToUndefined, z.string().uuid().optional()),
   insuranceProvider: optionalText,
   insurancePolicyNumber: optionalText,
   allergies: optionalText,
   currentMedications: optionalText,
   familyMedicalHistory: optionalText,
   pastMedicalHistory: optionalText,
-  identificationType: z.string().min(1).max(MAX_LINE),
-  identificationNumber: z.string().min(1).max(MAX_LINE),
+  identificationType: optionalLine,
+  identificationNumber: optionalLine,
   bloodType: optionalText,
   consentTreatment: booleanFromString,
   consentDisclosure: booleanFromString,
@@ -86,12 +96,8 @@ patientsRoute.post("/register", requireAuth, async (c) => {
   const body = await c.req.parseBody();
 
   const idDocument = body.identificationDocument;
-  if (!(idDocument instanceof File)) {
-    return c.json({ error: "identificationDocument file is required" }, 400);
-  }
-
   const input = patientProfileSchema.parse(body);
-  const storageKey = await fileStorage.save(idDocument);
+  const storageKey = idDocument instanceof File ? await fileStorage.save(idDocument) : null;
 
   const patient = await registerPatient(
     {
@@ -102,15 +108,15 @@ patientsRoute.post("/register", requireAuth, async (c) => {
       occupation: input.occupation,
       emergencyContactName: input.emergencyContactName,
       emergencyContactPhone: input.emergencyContactPhone,
-      primaryPhysicianId: input.primaryPhysicianId,
+      primaryPhysicianId: input.primaryPhysicianId ?? null,
       insuranceProvider: input.insuranceProvider ?? null,
       insurancePolicyNumber: input.insurancePolicyNumber ?? null,
       allergies: input.allergies ?? null,
       currentMedications: input.currentMedications ?? null,
       familyMedicalHistory: input.familyMedicalHistory ?? null,
       pastMedicalHistory: input.pastMedicalHistory ?? null,
-      identificationType: input.identificationType,
-      identificationNumber: input.identificationNumber,
+      identificationType: input.identificationType ?? null,
+      identificationNumber: input.identificationNumber ?? null,
       identificationDocumentPath: storageKey,
       bloodType: input.bloodType ?? null,
       consentTreatment: input.consentTreatment,
@@ -158,15 +164,15 @@ patientsRoute.patch("/me", requireAuth, async (c) => {
       occupation: input.occupation,
       emergencyContactName: input.emergencyContactName,
       emergencyContactPhone: input.emergencyContactPhone,
-      primaryPhysicianId: input.primaryPhysicianId,
+      primaryPhysicianId: input.primaryPhysicianId ?? null,
       insuranceProvider: input.insuranceProvider ?? null,
       insurancePolicyNumber: input.insurancePolicyNumber ?? null,
       allergies: input.allergies ?? null,
       currentMedications: input.currentMedications ?? null,
       familyMedicalHistory: input.familyMedicalHistory ?? null,
       pastMedicalHistory: input.pastMedicalHistory ?? null,
-      identificationType: input.identificationType,
-      identificationNumber: input.identificationNumber,
+      identificationType: input.identificationType ?? null,
+      identificationNumber: input.identificationNumber ?? null,
       identificationDocumentPath: storageKey,
       consentTreatment: input.consentTreatment,
       consentDisclosure: input.consentDisclosure,

@@ -90,15 +90,15 @@ export interface Patient {
   occupation: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
-  primaryPhysicianId: string;
+  primaryPhysicianId: string | null;
   insuranceProvider: string | null;
   insurancePolicyNumber: string | null;
   allergies: string | null;
   currentMedications: string | null;
   familyMedicalHistory: string | null;
   pastMedicalHistory: string | null;
-  identificationType: string;
-  identificationNumber: string;
+  identificationType: string | null;
+  identificationNumber: string | null;
   identificationDocumentPath: string | null;
   bloodType: string | null;
   consentTreatment: boolean;
@@ -118,7 +118,7 @@ export interface PatientSummary {
   gender: "male" | "female" | "other";
   bloodType: string | null;
   allergies: string | null;
-  primaryPhysicianId: string;
+  primaryPhysicianId: string | null;
 }
 
 export interface Appointment extends AppointmentState {
