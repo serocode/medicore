@@ -124,13 +124,13 @@ patientsRoute.post("/register", requireAuth, async (c) => {
   return c.json({ patient }, 201);
 });
 
+// No profile yet is the normal state for a patient who has just signed in,
+// not a failure, so it answers `{ patient: null }` rather than a 404 — which
+// the browser would log as an error on every page a new patient opens.
 patientsRoute.get("/me", requireAuth, async (c) => {
   const user = c.get("user");
   const patient = await getPatientByUserId(user.id, { patients: patientRepository });
-  if (!patient) {
-    return c.json({ error: "Patient not found" }, 404);
-  }
-  return c.json({ patient });
+  return c.json({ patient: patient ?? null });
 });
 
 patientsRoute.patch("/me", requireAuth, async (c) => {

@@ -55,10 +55,11 @@ describe("POST /api/patients/register", () => {
 });
 
 describe("GET /api/patients/me", () => {
-  it("404s before the patient has registered", async () => {
+  it("returns a null patient before the patient has registered", async () => {
     const cookie = await signInAsPatient(app, "me-test@example.com");
     const res = await app.request("/api/patients/me", { headers: { Cookie: cookie } });
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(200);
+    expect(await readJson<{ patient: null }>(res)).toEqual({ patient: null });
   });
 
   it("returns the patient profile after registering", async () => {
@@ -114,7 +115,7 @@ describe("DELETE /api/patients/me", () => {
     expect(res.status).toBe(404);
   });
 
-  it("soft-deletes the profile: GET /me 404s afterward", async () => {
+  it("soft-deletes the profile: GET /me returns no patient afterward", async () => {
     const cookie = await signInAsPatient(app, "delete-test@example.com");
     await registerTestPatient(app, { cookie, doctorId });
 
@@ -125,7 +126,8 @@ describe("DELETE /api/patients/me", () => {
     expect(deleteRes.status).toBe(204);
 
     const meRes = await app.request("/api/patients/me", { headers: { Cookie: cookie } });
-    expect(meRes.status).toBe(404);
+    expect(meRes.status).toBe(200);
+    expect(await readJson<{ patient: null }>(meRes)).toEqual({ patient: null });
   });
 
   it("lets the same user re-register afterward instead of hitting the duplicate 409", async () => {
